@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import math
 import torch, random
 import numpy as np
 
@@ -141,7 +142,7 @@ class CamembertNER:
                     f"len(tokens)={len(tokens)} len(labels)={len(labels)}"
                 )
 
-            enc = self.tokenizer(
+            encoded = self.tokenizer(
                 tokens,
                 is_split_into_words=True,
                 truncation=True,
@@ -150,7 +151,7 @@ class CamembertNER:
                 return_offsets_mapping=True
             )
 
-            word_ids = enc.word_ids()
+            word_ids = encoded.word_ids()
             aligned_labels = []
             prev_word_id = None
 
@@ -170,15 +171,15 @@ class CamembertNER:
                 prev_word_id = wid
 
             encoded_examples.append({
-                "input_ids": torch.tensor(enc["input_ids"]),
-                "attention_mask": torch.tensor(enc["attention_mask"]),
+                "input_ids": torch.tensor(encoded["input_ids"]),
+                "attention_mask": torch.tensor(encoded["attention_mask"]),
                 "labels": torch.tensor(aligned_labels),
             })
 
         return encoded_examples
 
     # -------- Train / Eval --------
-    def train(self, train_data, val_data, model_dir, epochs=10, batch_size=8, lr=5e-5):
+    def train(self, train_data, val_data, model_dir, epochs=10, batch_size=8, lr=3e-5, patience=5):
         """
         Entraîne et sauvegarde le meilleur modèle (selon F1 micro seqeval).
         """
@@ -195,7 +196,11 @@ class CamembertNER:
         val_loader = DataLoader(TokenDataset(val_encoded), batch_size=batch_size, shuffle=False)
 
         optimizer = AdamW(self.model.parameters(), lr=lr, weight_decay=0.01)    # weight decay pour limiter overfitting
-        loss_fct = CrossEntropyLoss()
+        weight_map = {"B-SRC": 2.0, "I-SRC": 1.5, "O": 1.0}
+        class_weights = torch.tensor(
+            [weight_map[l] for l in self.labels], dtype=torch.float
+        ).to(self.device)
+        loss_fct = CrossEntropyLoss(weight=class_weights, ignore_index=-100)
 
         best_f1 = -1.0
 
@@ -229,11 +234,20 @@ class CamembertNER:
             print("\n[Validation | token-level (B/I séparés)]")
             print(metrics["token_report_bi"])
 
-            if metrics["seqeval_f1_micro"] > best_f1:
-                best_f1 = metrics["seqeval_f1_micro"]
+            current_f1 = metrics["seqeval_f1_micro"]
+            if current_f1>best_f1:
+                best_f1=current_f1
+                no_improve = 0
                 self.save(model_dir)
                 print(f"Best model saved to {model_dir} (best F1 micro={best_f1:.4f})")
+            else : 
+                no_improve += 1
+                print(f"No improvement ({no_improve}/{patience})")
+                if no_improve >= patience:
+                    print(f"Early stopping at epoch {epoch+1}. Best F1 micro={best_f1:.4f}")
+                    break
 
+        self.load(model_dir)
         return best_f1
 
     def evaluate(self, val_loader):
@@ -267,7 +281,7 @@ class CamembertNER:
         f1_micro = seq_f1_score(true_labels, pred_labels, average="micro")
         f1_macro = seq_f1_score(true_labels, pred_labels, average="macro")
 
-        # token report sur B/I (optionnel)
+        # token report sur B/I 
         flat_true = [lab for sent in true_labels for lab in sent]
         flat_pred = [lab for sent in pred_labels for lab in sent]
         flat_true_bi = [t for t in flat_true if t != "O"]
@@ -371,44 +385,75 @@ class CamembertNER:
 
         return output_path
     
-    def uncertainty_sampling(self, phrase):
+    def uncertainty_sampling(self, phrase=None, tokens=None, method="entropy", agg="topk", topk=5):
+        """
+        méthode : entropy, margin
+        aggrégation : topk, max, mean
+        """
         if self.model is None or self.tokenizer is None : 
             raise RuntimeError("Model not loaded")
         
-        words = self.simple_tokenize(phrase)
+        if tokens is None:
+            if phrase is None:
+                raise ValueError("Provide phrase or tokens")
+            tokens = self.simple_tokenize(phrase)
+        
         encoded = self.tokenizer(
-            words,
+            tokens,
             return_tensors="pt",
             truncation=True,
             padding=True,
             is_split_into_words=True
         )
-
         word_ids = encoded.word_ids(batch_index=0) 
         inputs = {k:v.to(self.device) for k,v in encoded.items()}
 
         with torch.no_grad():
-            logits = self.model(**inputs).logits  # [1, seq_len, num_labels]
-            probs = torch.softmax(logits, dim=-1)[0]  # [seq_len, num_labels]
-            preds = torch.argmax(probs, dim=-1).tolist()
-        # Reconstruit au niveau de mot 
-        word_preds=[]
-        word_uncert=[]
+            logits = self.model(**inputs).logits[0] # [seq_len, num_labels]
+            probs = torch.softmax(logits, dim=-1)
+            # probs = torch.softmax(logits, dim=-1)[0]  # [seq_len, num_labels]
+            # preds = torch.argmax(probs, dim=-1).tolist()
 
+        # Prend subword de chaque mot
+        word_probs=[]
         prev = None
         for i, wid in enumerate(word_ids):
             if wid is None : 
                 continue 
             if wid!=prev : 
-                pmax = float(torch.max(probs[i]).item())
-                word_uncert.append(1.0-pmax)
-                word_preds.append(self.id2label.get(preds[i],"O"))
+                word_probs.append(probs[i].detach().cpu())
             prev = wid
         
-        # la score moyenne par phrase 
-        score = sum(word_uncert)/max(1,len(word_uncert))
+        if len(word_probs) == 0 :
+            return tokens, [], 0.0, []  
+        
+        word_probs = torch.stack(word_probs, dim=0)
+        pred_ids = torch.argmax(word_probs, dim=-1).tolist()
+        word_preds = [self.id2label.get(i,"O") for i in pred_ids]
 
-        return words, word_preds, score 
+        if method == "entropy":
+            eps = 1e-12
+            num_labels = word_probs.shape[-1]
+            word_uncert = -(word_probs * torch.log(word_probs + eps)).sum(dim=-1)
+            word_uncert = (word_uncert / math.log(num_labels)).tolist()   # Normolized entropy to [0,1]
+        elif method == "margin":
+            # 1 - (p1 - p2)
+            top2 = torch.topk(word_probs, k=2, dim=-1).values
+            margin = top2[:, 0] - top2[:, 1]
+            word_uncert = (1.0 - margin).tolist()
+        else:
+            raise ValueError("method must be 'entropy' or 'margin'")
+        
+        # sentence aggregation
+        if agg == "mean":
+            score = float(sum(word_uncert) / max(1, len(word_uncert)))
+        elif agg == "max":
+            score = float(max(word_uncert))
+        elif agg == "topk":
+            k = min(topk, len(word_uncert))
+            score = float(sum(sorted(word_uncert, reverse=True)[:k]) / k)
+        else:
+            raise ValueError("agg must be 'mean', 'max', or 'topk'")
 
-
+        return tokens, word_preds, score, word_uncert
 
