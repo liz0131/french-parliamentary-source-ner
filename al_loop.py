@@ -195,7 +195,7 @@ def get_annotations(to_annotate_path: str, annotated_path:str) -> None :
 def main():
     MODEL_DIR = "./IOB_model_1"
     BEST_MODEL_DIR = "./best_model"
-    CAND_MODEL_DIR ="./candidate_model"
+    # CAND_MODEL_DIR ="./candidate_model"
 
     LABELED = "./dataset/train.json"
     VAL = "./dataset/valid.json"
@@ -295,8 +295,8 @@ def main():
         scored.sort(key=lambda x: x[0], reverse=True)
         picked_uncertain = scored[:K_UNCERTAIN]
 
-        # 5) select FN probe (random parmi "tout O")
-        random.shuffle(no_src_candidates)
+        # 5) select FN probe (random parmi "tout O") => stratégie de selection des négatifs à changer !!!
+        random.shuffle(no_src_candidates) 
         picked_fn = no_src_candidates[:K_FN_PROBE]
 
         # 6) export to_annotate.jsonl
@@ -311,10 +311,10 @@ def main():
                 "tokens": tokens,
                 "labels_pred": pred_labels,
                 "uncertainty": u,
-                "mode": "uncertain"
+                "mode": "uncertain"  # renommer !!!
             })
 
-        # b) FN probe
+        # b) FN probe => stratégie de selection des négatifs à changer !!!
         for u, item, tokens, pred_labels in picked_fn:
             to_annotate.append({
                 "uid": item.get("uid"),
