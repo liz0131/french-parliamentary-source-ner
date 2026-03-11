@@ -136,9 +136,8 @@ class CamembertNER:
             labels = ex["labels"]
 
             if len(tokens) != len(labels):
-                # check !!
                 raise ValueError(
-                    f"Tokens/labels mismatch: uid={ex.get('uid')} "
+                    f"Tokens/labels mismatch: id={ex.get('id')} "  # correction : uid -> id 
                     f"len(tokens)={len(tokens)} len(labels)={len(labels)}"
                 )
 
@@ -159,10 +158,9 @@ class CamembertNER:
                 if wid is None:
                     aligned_labels.append(-100)
                 elif wid != prev_word_id:
-                    # check !!
                     if wid >= len(labels):
                         raise ValueError(
-                            f"Label index out of range: uid={ex.get('uid')} "
+                            f"Label index out of range: id={ex.get('id')} "  # correction : uid -> id 
                             f"wid={wid} len(labels)={len(labels)}"
                         )
                     aligned_labels.append(self.label2id[labels[wid]])

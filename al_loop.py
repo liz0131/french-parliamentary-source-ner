@@ -22,11 +22,11 @@ def write_jsonl(path, data):
         for obj in data:
             f.write(json.dumps(obj, ensure_ascii=False) + "\n")
 
-def make_uid_set(items): # encore le filtrage avec uid !!
-    return set([x.get("uid") for x in items if x.get("uid") is not None])
+def make_id_set(items): # correction : référence uid -> id
+    return set([x.get("id") for x in items if x.get("id") is not None])
 
-def remove_selected_from_pool(pool, selected_uid_set): # encore le filtrage avec uid !! 
-    return [x for x in pool if x.get("uid") not in selected_uid_set]
+def remove_selected_from_pool(pool, selected_id_set): # correction : référence uid -> id
+    return [x for x in pool if x.get("id") not in selected_id_set]
 
 def visual_token_label(tokens: List[str], labels:List[str]) -> str:
     """ Visualisation des annotations pour vérifier tokens/labels """
@@ -339,17 +339,17 @@ def main():
         new_items = ner.convert_to_typed_iob(new_items)
 
         # 9) update labeled
-        labeled_uid = make_uid_set(labeled)
+        labeled_id = make_id_set(labeled)
         added = 0
         for ex in new_items:
-            if ex.get("uid") not in labeled_uid:
+            if ex.get("id") not in labeled_id:
                 labeled.append(ex)
                 added += 1
         print(f"Added {added} new labeled examples.")
 
         # 10) remove selected from pool
-        selected_uids = set([x.get("uid") for x in to_annotate if x.get("uid") is not None])
-        pool = remove_selected_from_pool(pool, selected_uids)
+        selected_ids = set([x.get("id") for x in to_annotate if x.get("id") is not None])
+        pool = remove_selected_from_pool(pool, selected_ids)
         print(f"Pool updated. Remaining: {len(pool)}")
 
         # 11) save updated datasets
