@@ -195,7 +195,8 @@ class CamembertNER:
         train_loader = DataLoader(TokenDataset(train_encoded), batch_size=batch_size, shuffle=True, generator=g)
         val_loader = DataLoader(TokenDataset(val_encoded), batch_size=batch_size, shuffle=False)
 
-        optimizer = AdamW(self.model.parameters(), lr=lr, weight_decay=0.01)    # weight decay pour limiter overfitting
+        # ajout de weight decay pour limiter overfitting
+        optimizer = AdamW(self.model.parameters(), lr=lr, weight_decay=0.01)    
         weight_map = {"B-SRC": 2.0, "I-SRC": 1.5, "O": 1.0}
         class_weights = torch.tensor(
             [weight_map[l] for l in self.labels], dtype=torch.float
@@ -234,6 +235,7 @@ class CamembertNER:
             print("\n[Validation | token-level (B/I séparés)]")
             print(metrics["token_report_bi"])
 
+            # Ajout de early stopping 
             current_f1 = metrics["seqeval_f1_micro"]
             if current_f1>best_f1:
                 best_f1=current_f1
