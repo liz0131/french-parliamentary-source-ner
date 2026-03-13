@@ -126,12 +126,13 @@ class UncertaintySampler:
         k_nn = min(self.k,len(self._labeled_has_entity))
         
         scores = []
+        p_raws = []
         for sim_row in sim_matrix:
             top_k_idx = np.argpartition(sim_row, -k_nn)[-k_nn:]
             p = self._labeled_has_entity[top_k_idx].mean()
             scores.append(float(4*p*(1-p)))
-
-        return scores
+            p_raws.append(float(p))
+        return scores, p_raws
     
     def model_uncertainty(self, unlabeled_data: list, method: str="entropy", agg: str="max", topk: int=5) -> list:
         scores = []
@@ -185,11 +186,12 @@ class UncertaintySampler:
         k_nn = min(self.k, len(self._labeled_has_entity))
 
         sem_scores = []
+        p_raws = []
         for sim_row in sim_matrix : 
             top_k_idx = np.argpartition(sim_row, -k_nn)[-k_nn:]
             p = self._labeled_has_entity[top_k_idx].mean()
             sem_scores.append(float(4*p*(1-p)))
-
+            p_raws.append(float(p))
         sem_scores = np.array(sem_scores)
 
         final_scores = np.zeros(n)
@@ -203,7 +205,7 @@ class UncertaintySampler:
         
         n_selected = (final_scores>0).sum()
         print(f"Kmeans_semantic : {n_selected} exemples retenus.")
-        return final_scores.tolist()
+        return final_scores.tolist(), p_raws
     
     def semantic_kmeans(self, unlabeled_data: list, n_clusters: int = None, beta: float = 5.0, intra_cluster: str="semantic", random_state: int=42) -> list :
         """
@@ -229,14 +231,16 @@ class UncertaintySampler:
         
         unl_emb_norm = self._normalize(self.sentence_embedding(unlabeled_data))
 
-        sim_matrix = unl_emb_norm @ self._labelded_embedding.T
-        k_nn = min(self.k, len(self._labeded_has_entity))
+        sim_matrix = unl_emb_norm @ self._labeled_embeddings.T
+        k_nn = min(self.k, len(self._labeled_has_entity))
 
-        sem_scores=[]
+        sem_scores = []
+        p_raws = []
         for sim_row in sim_matrix :
             top_k_idx = np.argpartition(sim_row, -k_nn)[-k_nn:]
             p = self._labeled_has_entity[top_k_idx].mean()
             sem_scores.append(float(4*p*(1-p)))
+            p_raws.append(float(p))
 
         sem_scores = np.array(sem_scores)
 
@@ -246,8 +250,8 @@ class UncertaintySampler:
         print(f"semantic_kmeans : {n_clusters} clusters sur {len(filtered_emb)} exemples filtrés")
 
         kmeans = KMeans(n_clusters=n_clusters, random_state=random_state, n_init=10)
-        cluster_labels = kmeans.fit_prefict(filtered_emb)
-        cluster_centers = kmeans.clusters_centers_
+        cluster_labels = kmeans.fit_predict(filtered_emb)
+        cluster_centers = kmeans.cluster_centers_
 
         rng = np.random.default_rng(random_state)
         final_scores = np.zeros(n)
@@ -261,25 +265,35 @@ class UncertaintySampler:
                 best_local = np.argmax(sem_scores[top_filter_idx[cluster_local_idx]])
                 chosen_global = top_filter_idx[cluster_local_idx[best_local]]
 
-            # elif intra_cluster == "center":
+            elif intra_cluster == "center":
+                center = cluster_centers[cluster_id]
+                dists = np.linalg.norm(
+                    filtered_emb[cluster_local_idx]-center, axis=1
+                )
+                best_local = np.argmin(dists)
+                chosen_global = top_filter_idx[cluster_local_idx[best_local]]                
 
-            # else : # random
+            else : # random
+                best_local = rng.integers(0, len(cluster_local_idx))
+                chosen_global = top_filter_idx[cluster_local_idx[best_local]]
+
             final_scores[chosen_global] = max(sem_scores[chosen_global], 1e-9)
             # final_scores[chosen_global] = sem_scores[chosen_global]
 
         n_selected = (final_scores>0).sum()
         print(f"semantic_kmeans: {n_selected} exemples retenus.")
 
-        return final_scores.tolist()
+        return final_scores.tolist(), p_raws
 
 
     def get_score(self, unlabeled_data: list, strategy: str="semantic", 
                   method: str="entropy", agg: str="max", 
                   n_clusters:int=None, beta: float = 5.0, intra_cluster:str="semantic") -> dict:
 
+        prior = float(self._labeled_has_entity.mean())
         if strategy == "semantic":
-            sem_score = self.semantic_uncertainty(unlabeled_data)
-            return {"Combined score": sem_score, "Semantic score": sem_score, "Model score": []}
+            sem_score, p_raws = self.semantic_uncertainty(unlabeled_data)
+            return {"Combined score": sem_score, "Semantic score": sem_score, "Model score": [], "P score": p_raws, "Prior": prior}
 
         if strategy == "entropy":
             model_score = self.model_uncertainty(unlabeled_data, method=method, agg=agg)
@@ -296,16 +310,14 @@ class UncertaintySampler:
             return {"Combined score": div_score, "Diversity score": div_score}
         
         if strategy == "kmeans_semantic":
-            km_score = self.kmeans_semantic(unlabeled_data, n_clusters=n_clusters)
-            return {"Combined score": km_score, "Kmeans-Semantic score": km_score}
+            km_score, p_raws = self.kmeans_semantic(unlabeled_data, n_clusters=n_clusters)
+            return {"Combined score": km_score, "Kmeans-Semantic score": km_score, "P score": p_raws, "Prior": prior}
         
         if strategy == "semantic_kmeans":
-            sk_score = self.semantic_kmeans(
+            sk_score, p_raws = self.semantic_kmeans(
                 unlabeled_data, n_clusters=n_clusters,
                 beta=beta, intra_cluster=intra_cluster
             )
-            return {"Combined score":sk_score, "Semantic-Kmeans score": sk_score}
-        # if strategy == "maxmin+semantic":
-            div_sem_score = self._semantic_score()
+            return {"Combined score":sk_score, "Semantic-Kmeans score": sk_score, "P score": p_raws, "Prior": prior}
 
         raise ValueError("Stratégie inconnue.")
