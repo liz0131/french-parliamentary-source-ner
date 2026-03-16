@@ -4,6 +4,7 @@ import json
 import math
 import torch, random
 import numpy as np
+import matplotlib.pyplot as plt
 
 from torch.utils.data import Dataset, DataLoader
 from torch.nn import CrossEntropyLoss
@@ -191,6 +192,8 @@ class CamembertNER:
         g.manual_seed(seed)
 
         train_loader = DataLoader(TokenDataset(train_encoded), batch_size=batch_size, shuffle=True, generator=g)
+        # ajoute d'évaluation du train
+        train_loader_eval = DataLoader(TokenDataset(train_encoded), batch_size=batch_size, shuffle=False)
         val_loader = DataLoader(TokenDataset(val_encoded), batch_size=batch_size, shuffle=False)
 
         # ajout de weight decay pour limiter overfitting
@@ -202,6 +205,9 @@ class CamembertNER:
         loss_fct = CrossEntropyLoss(weight=class_weights, ignore_index=-100)
 
         best_f1 = -1.0
+        no_improve = 0
+
+        history ={"train_f1":[], "val_f1":[], "gap":[]}
 
         for epoch in range(epochs):
             self.model.train()
@@ -221,20 +227,31 @@ class CamembertNER:
 
                 total_loss += float(loss.item())
 
-            print(f"Epoch {epoch+1} - Loss: {total_loss:.4f}")
+            print(f"Epoch {epoch+1}/{epochs} - Loss: {total_loss:.4f}")
 
-            metrics = self.evaluate(val_loader)
+            train_metrics = self.evaluate(train_loader_eval)
+            train_f1 = train_metrics["seqeval_f1_micro"]
+            print(f"[TRAIN] F1 micro: {train_f1: .4f}")
+
+            
+            val_metrics = self.evaluate(val_loader)
+            val_f1 = val_metrics["seqeval_f1_micro"]
+            print(f"[VALID] F1 micro:{val_f1:.4f}")
+
+            gap = train_f1 - val_f1
+            print(f"[Gap train_valid] {gap:+.4f}{'Overfitting!' if gap > 0.15 else ''}")
 
             print("\n[Validation | seqeval (entity-level)]")
-            print(metrics["seqeval_report"])
-            print(f"F1 (micro): {metrics['seqeval_f1_micro']:.4f}")
-            print(f"F1 (macro): {metrics['seqeval_f1_macro']:.4f}")
-
+            print(val_metrics["seqeval_report"])
             print("\n[Validation | token-level (B/I séparés)]")
-            print(metrics["token_report_bi"])
+            print(val_metrics["token_report_bi"])
+
+            history["train_f1"].append(train_f1)
+            history["val_f1"].append(val_f1)
+            history["gap"].append(gap)
 
             # Ajout de early stopping 
-            current_f1 = metrics["seqeval_f1_micro"]
+            current_f1 = val_metrics["seqeval_f1_micro"]
             if current_f1>best_f1:
                 best_f1=current_f1
                 no_improve = 0
@@ -247,6 +264,17 @@ class CamembertNER:
                     print(f"Early stopping at epoch {epoch+1}. Best F1 micro={best_f1:.4f}")
                     break
 
+        fig, (ax1, ax2) = plt.subplots(2,1,figsize=(8, 6), sharex=True)
+        ax1.plot(history["train_f1"], label="Train F1", color="#F97306")
+        ax1.plot(history["val_f1"], label="Val F1", color="#15B01A")
+        ax1.set_ylabel("F1 micro")
+        ax1.legend()
+        ax1.set_ylim(0,1)
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(model_dir, "training_curve.png", dpi=120))
+        plt.close()    
+                
         self.load(model_dir)
         return best_f1
 
@@ -294,11 +322,19 @@ class CamembertNER:
             zero_division=0
         )
 
+        _, _, token_f1_micro, _ = precision_recall_fscore_support(
+            flat_true_bi, flat_pred_bi,
+            labels=["B-SRC", "I-SRC"],
+            average="micro",
+            zero_division=0
+        )
+
         return {
             "seqeval_report": seqeval_report,
             "seqeval_f1_micro": f1_micro,
             "seqeval_f1_macro": f1_macro,
             "token_report_bi": token_report_bi,
+            "token_f1_micro": float(token_f1_micro)
         }
     
     def evaluate_data(self, val_data, batch_size=8):
