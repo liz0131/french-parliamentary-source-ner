@@ -359,6 +359,10 @@ def main():
 
         # 12) Retrain après annotation
         print(f"Entraînement du modèle (itération {it+1})...")
+        # Cold Start forcé 
+        ner.model = None
+        ner.tokenizer = None 
+
         retrain_f1 = ner.train(
             train_data=labeled,
             val_data=val,
