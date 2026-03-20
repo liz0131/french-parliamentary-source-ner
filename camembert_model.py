@@ -198,16 +198,17 @@ class CamembertNER:
 
         # ajout de weight decay pour limiter overfitting
         optimizer = AdamW(self.model.parameters(), lr=lr, weight_decay=0.01)    
-        weight_map = {"B-SRC": 2.0, "I-SRC": 1.5, "O": 1.0}
-        class_weights = torch.tensor(
-            [weight_map[l] for l in self.labels], dtype=torch.float
-        ).to(self.device)
-        loss_fct = CrossEntropyLoss(weight=class_weights, ignore_index=-100)
+        # weight_map = {"B-SRC": 2.0, "I-SRC": 1.5, "O": 1.0}
+        # class_weights = torch.tensor(
+            # [weight_map[l] for l in self.labels], dtype=torch.float
+        #).to(self.device)
+        # loss_fct = CrossEntropyLoss(weight=class_weights, ignore_index=-100)
+        loss_fct = CrossEntropyLoss(ignore_index=-100)
 
         best_f1 = -1.0
         no_improve = 0
 
-        history ={"train_f1":[], "val_f1":[], "gap":[]}
+        history ={"train_f1":[], "val_f1":[], "gap":[], "token_f1":[]}
 
         for epoch in range(epochs):
             self.model.train()
@@ -237,6 +238,7 @@ class CamembertNER:
             val_metrics = self.evaluate(val_loader)
             val_f1 = val_metrics["seqeval_f1_micro"]
             print(f"[VALID] F1 micro:{val_f1:.4f}")
+            print(f"[VALID] Token F1 (B/I): {val_metrics['token_f1_micro']:.4f}")
 
             gap = train_f1 - val_f1
             print(f"[Gap train_valid] {gap:+.4f}{'Overfitting!' if gap > 0.15 else ''}")
@@ -249,6 +251,7 @@ class CamembertNER:
             history["train_f1"].append(train_f1)
             history["val_f1"].append(val_f1)
             history["gap"].append(gap)
+            history["token_f1"].append(val_metrics["token_f1_micro"])
 
             # Ajout de early stopping 
             current_f1 = val_metrics["seqeval_f1_micro"]
@@ -264,12 +267,12 @@ class CamembertNER:
                     print(f"Early stopping at epoch {epoch+1}. Best F1 micro={best_f1:.4f}")
                     break
 
-        fig, (ax1, ax2) = plt.subplots(2,1,figsize=(8, 6), sharex=True)
-        ax1.plot(history["train_f1"], label="Train F1", color="#F97306")
-        ax1.plot(history["val_f1"], label="Val F1", color="#15B01A")
-        ax1.set_ylabel("F1 micro")
-        ax1.legend()
-        ax1.set_ylim(0,1)
+        fig, ax = plt.subplots(2,1,figsize=(8, 6), sharex=True)
+        ax.plot(history["train_f1"], label="Train F1", color="#F97306")
+        ax.plot(history["val_f1"], label="Val F1", color="#15B01A")
+        ax.set_ylabel("F1 micro")
+        ax.legend()
+        ax.set_ylim(0,1)
 
         plt.tight_layout()
         plt.savefig(os.path.join(model_dir, "training_curve.png", dpi=120))
