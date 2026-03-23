@@ -207,7 +207,7 @@ def main():
     # hyperparams AL
     AL_ITERS = 3         # loop al 
     K_UNCERTAIN = 35 # combien de phrases incertaines
-    K_FN_PROBE = 5    # combien de phrases "sans src" à vérifier (FN)
+    K_FN_UNCERTAIN = 5    # combien de phrases "sans src" à vérifier (FN)
     AL_STRATEGY = "kmeans_semantic"  # "combined"|"entropy"|"semantic"| "maxmin"|"kmeans_semantic"
 
     ner = CamembertNER(max_length=128)
@@ -271,7 +271,8 @@ def main():
         sampler.labeled_cache(labeled)  # labeled embedding cache
 
         scores_dict = sampler.get_score(pool, strategy=AL_STRATEGY, method="entropy", agg="max", n_clusters=K_UNCERTAIN)
-        combined = scores_dict["Combined score"] 
+        combined = scores_dict["Combined score"]
+        p_raws = scores_dict.get("P score", [0.0] * len(pool))
 
         scored = []
         no_src_candidates = []
@@ -284,7 +285,7 @@ def main():
             tokens = item.get("tokens") or ner.simple_tokenize(phrase)
             _, pred_labels, _, _ = ner.uncertainty_sampling(tokens=tokens)
 
-            entry = (combined[i], item, tokens, pred_labels)
+            entry = (combined[i], p_raws[i], item, tokens, pred_labels)
 
             if all(lab == "O" for lab in pred_labels):
                 no_src_candidates.append(entry)
@@ -299,12 +300,12 @@ def main():
         long_entity_picked = []
         normal_picked = []
 
-        for u, item, tokens, pred_labels in top_pool:
+        for u, p_raw, item, tokens, pred_labels in top_pool:
             has_i_label = any(lab =="I-SRC" for lab in pred_labels)
             if has_i_label:
-                long_entity_picked.append((u, item, tokens, pred_labels))
+                long_entity_picked.append((u, p_raw, item, tokens, pred_labels))
             else :
-                normal_picked.append((u, item, tokens, pred_labels))
+                normal_picked.append((u, p_raw, item, tokens, pred_labels))
 
         # Choisir les phrases contiennent I-SRC en priorité, 
         picked_uncertain = (long_entity_picked + normal_picked)[:K_UNCERTAIN]
@@ -312,15 +313,16 @@ def main():
         print(f"Sélection: {len(long_entity_picked)} entités longues + {max(0, len(picked_uncertain)-len(long_entity_picked))} normaux"
               f"Total: {len(picked_uncertain)}")
 
-        # 5) select FN probe (random parmi "tout O") => stratégie de selection des négatifs à changer !!!
-        random.shuffle(no_src_candidates) 
-        picked_fn = no_src_candidates[:K_FN_PROBE]
+        # 5) select FN : sélection sémantique par proximité à la frontière
+        # p_raw élevé parmi les échantillons "tout O" = sémantiquement proche du voisinage positif
+        no_src_candidates.sort(key=lambda x: x[1], reverse=True)    # trie par p_raw décroissant
+        picked_fn = no_src_candidates[:K_FN_UNCERTAIN]
 
         # 6) export to_annotate.jsonl
         to_annotate = []
 
         # a) incertain
-        for u, item, tokens, pred_labels in picked_uncertain:
+        for u, p_raw, item, tokens, pred_labels in picked_uncertain:
             to_annotate.append({
                 "uid": item.get("uid"),
                 "id": item.get("id"),
@@ -328,19 +330,21 @@ def main():
                 "tokens": tokens,
                 "labels_pred": pred_labels,
                 "uncertainty": u,
+                "p_raw" : p_raw,
                 "mode": "long_entity" if has_i_label else "uncertain"  # Peut-être cas peu de uncertain, choix de long_entité à limiter, en parallèle?
             })
 
-        # b) FN probe => stratégie de selection des négatifs à changer !!!
-        for u, item, tokens, pred_labels in picked_fn:
+        # b) FN incertain - sélection par p_raw décroissan
+        for u, p_raw, item, tokens, pred_labels in picked_fn:
             to_annotate.append({
                 "uid": item.get("uid"),
                 "id": item.get("id"),
                 "text": item.get("text"),
                 "tokens": tokens,
-                "labels_pred": pred_labels,  # souvent tout O
+                "labels_pred": pred_labels, 
                 "uncertainty": u,
-                "mode": "fn_probe"
+                "p_raw" : p_raw,
+                "mode": "fn_incertain"
             })
 
         write_jsonl(TO_ANNOTATE, to_annotate)
