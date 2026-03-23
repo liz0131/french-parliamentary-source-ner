@@ -268,14 +268,14 @@ class CamembertNER:
                     break
 
         fig, ax = plt.subplots(2,1,figsize=(8, 6), sharex=True)
-        ax.plot(history["train_f1"], label="Train F1", color="#F97306")
-        ax.plot(history["val_f1"], label="Val F1", color="#15B01A")
-        ax.set_ylabel("F1 micro")
-        ax.legend()
-        ax.set_ylim(0,1)
+        ax[0].plot(history["train_f1"], label="Train F1", color="#F97306")
+        ax[0].plot(history["val_f1"], label="Val F1", color="#15B01A")
+        ax[0].set_ylabel("F1 micro")
+        ax[0].legend()
+        ax[0].set_ylim(0,1)
 
         plt.tight_layout()
-        plt.savefig(os.path.join(model_dir, "training_curve.png", dpi=120))
+        plt.savefig(os.path.join(model_dir, "training_curve.png"), dpi=120)
         plt.close()    
                 
         self.load(model_dir)
