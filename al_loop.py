@@ -291,9 +291,26 @@ def main():
             else:
                 scored.append(entry)
 
-        # 4) select uncertain (top-K)
+        # 4) select uncertain (top-K) avec priorité aux entités longues
         scored.sort(key=lambda x: x[0], reverse=True)
-        picked_uncertain = scored[:K_UNCERTAIN]
+        # Filtrer les phrases qui contient label I-SRC dans top 3*k pool
+        top_pool = scored[:K_UNCERTAIN*3]
+
+        long_entity_picked = []
+        normal_picked = []
+
+        for u, item, tokens, pred_labels in top_pool:
+            has_i_label = any(lab =="I-SRC" for lab in pred_labels)
+            if has_i_label:
+                long_entity_picked.append((u, item, tokens, pred_labels))
+            else :
+                normal_picked.append((u, item, tokens, pred_labels))
+
+        # Choisir les phrases contiennent I-SRC en priorité, 
+        picked_uncertain = (long_entity_picked + normal_picked)[:K_UNCERTAIN]
+
+        print(f"Sélection: {len(long_entity_picked)} entités longues + {max(0, len(picked_uncertain)-len(long_entity_picked))} normaux"
+              f"Total: {len(picked_uncertain)}")
 
         # 5) select FN probe (random parmi "tout O") => stratégie de selection des négatifs à changer !!!
         random.shuffle(no_src_candidates) 
@@ -311,7 +328,7 @@ def main():
                 "tokens": tokens,
                 "labels_pred": pred_labels,
                 "uncertainty": u,
-                "mode": "uncertain"  # renommer !!!
+                "mode": "long_entity" if has_i_label else "uncertain"  # Peut-être cas peu de uncertain, choix de long_entité à limiter, en parallèle?
             })
 
         # b) FN probe => stratégie de selection des négatifs à changer !!!
