@@ -11,10 +11,12 @@ from torch.nn import CrossEntropyLoss
 from torch.optim import AdamW
 
 from transformers import CamembertTokenizerFast, CamembertForTokenClassification
+from transformers import get_linear_schedule_with_warmup 
 
 from seqeval.metrics import classification_report as seq_classification_report, f1_score as seq_f1_score
 import sklearn.metrics as sk_metrics
 from sklearn.metrics import precision_recall_fscore_support
+from sklearn.utils.class_weight import compute_class_weight
 
 seed = 42
 os.environ["PYTHONHASHSEED"] = str(seed)
@@ -102,7 +104,27 @@ class CamembertNER:
             label2id=self.label2id,
             ignore_mismatched_sizes=True
         )
+        self.model.dropout = torch.nn.Dropout(p=0.2) 
         self.model.to(self.device)
+
+    def freeze_layers(self, num_frozen_layers=4):
+        """
+        Gèle les n premières couches pour réduire les pramètres entraînable 
+        """
+        # Geler les embeddings 
+        for param in self.model.roberta.embeddings.parameters():
+            param.requires_grad = False
+
+        # Geler les n premièrs couches transformer 
+        for i, layer in enumerate(self.model.roberta.encoder.layer):
+            if i < num_frozen_layers:
+                for param in layer.parameters():
+                    param.requires_grad = False
+
+        # Compter les paramètres entraînables
+        trainable = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        total = sum(p.numel() for p in self.model.parameters())
+        print(f"Paramètres entraînables: {trainable:,}/{total:,}{100*trainable/total:.1f}%")
 
     def load(self, model_dir):
         if not os.path.isdir(model_dir):
@@ -185,6 +207,8 @@ class CamembertNER:
         if self.model is None or self.tokenizer is None:
             self.init_for_train()
 
+        self.freeze_layers(num_frozen_layers=4)
+
         train_encoded = self.encode_data(train_data)
         val_encoded = self.encode_data(val_data)
 
@@ -197,12 +221,22 @@ class CamembertNER:
         val_loader = DataLoader(TokenDataset(val_encoded), batch_size=batch_size, shuffle=False)
 
         # ajout de weight decay pour limiter overfitting
-        optimizer = AdamW(self.model.parameters(), lr=lr, weight_decay=0.01)    
+        optimizer = AdamW(self.model.parameters(), lr=lr, weight_decay=0.01) 
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.3, patience=2, min_lr=1e-6)   
+        # total_steps = len(train_loader)*epochs
+        # Scheduler : augmente lr prograssivement au début et diminue liérairement à la fin de l'entrainment
+        # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=int(0.1*total_steps), num_training_steps=total_steps)
         # weight_map = {"B-SRC": 2.0, "I-SRC": 1.5, "O": 1.0}
         # class_weights = torch.tensor(
             # [weight_map[l] for l in self.labels], dtype=torch.float
         #).to(self.device)
-        # loss_fct = CrossEntropyLoss(weight=class_weights, ignore_index=-100)
+        # all_labels_flat = [lab for ex in train_data for lab in ex["labels"]]
+        # Calcule weight automatiquement : weight=nb_tokens/(nb_classes*occurrences_classe)
+        # raw_weight = compute_class_weight("balanced", classes=np.array(self.labels), y=np.array(all_labels_flat))
+        # alpha = 0.07
+        # scaled_weight = 1.0 +alpha*(raw_weight-1.0)
+        # print(f"Class weights: { {l: round(w,3) for l,w in zip(self.labels, scaled_weight)} }")
+        # class_weights = torch.tensor(scaled_weight, dtype=torch.float).to(self.device)
         loss_fct = CrossEntropyLoss(ignore_index=-100)
 
         best_f1 = -1.0
@@ -222,9 +256,11 @@ class CamembertNER:
                 outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
                 loss = loss_fct(outputs.logits.view(-1, self.model.config.num_labels), labels.view(-1))
 
+                optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                optimizer.zero_grad()
+                # scheduler.step()  # Mettre à jour lr après chaque batch
+                
 
                 total_loss += float(loss.item())
 
@@ -240,6 +276,10 @@ class CamembertNER:
             print(f"[VALID] F1 micro:{val_f1:.4f}")
             print(f"[VALID] Token F1 (B/I): {val_metrics['token_f1_micro']:.4f}")
 
+            scheduler.step(val_f1)
+            current_lr = optimizer.param_groups[0]['lr']
+            print(f"[LR] {current_lr:.2e}")
+            
             gap = train_f1 - val_f1
             print(f"[Gap train_valid] {gap:+.4f}{'Overfitting!' if gap > 0.15 else ''}")
 
