@@ -242,7 +242,7 @@ class CamembertNER:
         best_f1 = -1.0
         no_improve = 0
 
-        history ={"train_f1":[], "val_f1":[], "gap":[], "token_f1":[]}
+        history ={"train_f1":[], "val_f1":[], "gap":[], "token_f1":[], "train_loss": [], "val_loss": []}
 
         for epoch in range(epochs):
             self.model.train()
@@ -266,20 +266,21 @@ class CamembertNER:
 
             print(f"Epoch {epoch+1}/{epochs} - Loss: {total_loss:.4f}")
 
+            history["train_loss"].append(total_loss)
             train_metrics = self.evaluate(train_loader_eval)
             train_f1 = train_metrics["seqeval_f1_micro"]
             print(f"[TRAIN] F1 micro: {train_f1: .4f}")
 
-            
             val_metrics = self.evaluate(val_loader)
             val_f1 = val_metrics["seqeval_f1_micro"]
+            history["val_loss"].append(val_metrics["val_loss"])
             print(f"[VALID] F1 micro:{val_f1:.4f}")
             print(f"[VALID] Token F1 (B/I): {val_metrics['token_f1_micro']:.4f}")
 
             scheduler.step(val_f1)
             current_lr = optimizer.param_groups[0]['lr']
             print(f"[LR] {current_lr:.2e}")
-            
+
             gap = train_f1 - val_f1
             print(f"[Gap train_valid] {gap:+.4f}{'Overfitting!' if gap > 0.15 else ''}")
 
@@ -307,12 +308,23 @@ class CamembertNER:
                     print(f"Early stopping at epoch {epoch+1}. Best F1 micro={best_f1:.4f}")
                     break
 
-        fig, ax = plt.subplots(2,1,figsize=(8, 6), sharex=True)
+        fig, ax = plt.subplots(2,1,figsize=(8, 8), sharex=True)
         ax[0].plot(history["train_f1"], label="Train F1", color="#F97306")
         ax[0].plot(history["val_f1"], label="Val F1", color="#15B01A")
         ax[0].set_ylabel("F1 micro")
         ax[0].legend()
         ax[0].set_ylim(0,1)
+        ax[0].set_title("F1 micro (seqeval)")
+        ax[0].grid(True, alpha=0.3)
+
+        ax[1].plot(history["train_loss"], label="Train Loss", color="#0343DF", marker="o", markersize=3)
+        ax[1].plot(history["val_loss"],   label="Val Loss",   color="#E50000", marker="o", markersize=3)
+        ax[1].set_ylabel("Loss")
+        ax[1].set_xlabel("Epoch")
+        ax[1].legend()
+        ax[1].set_title("Cross-Entropy Loss")
+        ax[1].grid(True, alpha=0.3)
+
 
         plt.tight_layout()
         plt.savefig(os.path.join(model_dir, "training_curve.png"), dpi=120)
@@ -323,6 +335,8 @@ class CamembertNER:
 
     def evaluate(self, val_loader):
         self.model.eval()
+        loss_fct = CrossEntropyLoss(ignore_index=-100)
+        total_loss = 0.0
         true_labels, pred_labels = [], []
 
         with torch.no_grad():
@@ -332,6 +346,11 @@ class CamembertNER:
                 labels = batch["labels"].to(self.device)
 
                 outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+                loss = loss_fct(
+                    outputs.logits.view(-1, self.model.config.num_labels),
+                    labels.view(-1)
+                )
+                total_loss += float(loss.item())
                 predictions = torch.argmax(outputs.logits, dim=-1)
 
                 for pred, true in zip(predictions, labels):
@@ -373,6 +392,7 @@ class CamembertNER:
         )
 
         return {
+            "val_loss": total_loss,
             "seqeval_report": seqeval_report,
             "seqeval_f1_micro": f1_micro,
             "seqeval_f1_macro": f1_macro,
