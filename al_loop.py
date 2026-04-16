@@ -192,31 +192,27 @@ def get_annotations(to_annotate_path: str, annotated_path:str) -> None :
         
 
 
-def main():
-    MODEL_DIR = "./IOB_model_1"
-    BEST_MODEL_DIR = "./best_model"
-    # CAND_MODEL_DIR ="./candidate_model"
+def main(config: dict):
+    cfg = config 
+    MODEL_DIR      = cfg["MODEL_DIR"]
+    BEST_MODEL_DIR = cfg["BEST_MODEL_DIR"]
+    LABELED        = cfg["LABELED"]
+    VAL            = cfg["VAL"]
+    POOL           = cfg["POOL"]
+    TO_ANNOTATE    = cfg["TO_ANNOTATE"]
+    ANNOTATED      = cfg["ANNOTATED"]
+    AL_ITERS       = cfg["AL_ITERS"]
+    K_UNCERTAIN    = cfg["K_UNCERTAIN"]
+    K_FN_UNCERTAIN = cfg["K_FN_UNCERTAIN"]
+    AL_STRATEGY    = cfg["AL_STRATEGY"]
 
-    LABELED = "./dataset/train.json"
-    VAL = "./dataset/valid.json"
-    POOL = "./dataset/test_pool.json"
-
-    TO_ANNOTATE = "./dataset/to_annotate.json"
-    ANNOTATED = "./dataset/annotated.json"   
-
-    # hyperparams AL
-    AL_ITERS = 3         # loop al 
-    K_UNCERTAIN = 35 # combien de phrases incertaines
-    K_FN_UNCERTAIN = 5    # combien de phrases "sans src" à vérifier (FN)
-    AL_STRATEGY = "kmeans_semantic"  # "combined"|"entropy"|"semantic"| "maxmin"|"kmeans_semantic"
-
-    ner = CamembertNER(max_length=128)
+    ner = CamembertNER(max_length=cfg["MAX_LENGTH"])
 
     labeled = read_jsonl(LABELED)
     val = read_jsonl(VAL)
     pool = read_jsonl(POOL)
 
-    # labels typed (safe)
+    # labels typed
     labeled = ner.convert_to_typed_iob(labeled)
     val = ner.convert_to_typed_iob(val)
 
@@ -396,6 +392,3 @@ def main():
 
     print(f"Meilleur F1 global atteint: {best_f1_micro:.4f}")
     print(f"Meilleur modèle sauvegardé dans: {BEST_MODEL_DIR}")
-
-if __name__ == "__main__":
-    main()

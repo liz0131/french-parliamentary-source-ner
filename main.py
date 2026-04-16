@@ -6,11 +6,11 @@ from camembert_model import CamembertNER
 def run_train():
     TRAIN_FILE = "./dataset/train.json"
     VAL_FILE = "./dataset/valid.json"
-    MODEL_DIR = "./IOB_model_1"
+    MODEL_DIR = "./IOB_model"
 
     EPOCHS = 15
     BATCH_SIZE = 8
-    LR = 1e-5
+    LR = 2e-5
     MAX_LENGTH = 128
 
     ner = CamembertNER(max_length=MAX_LENGTH)
@@ -37,7 +37,7 @@ def run_train():
 
 
 def run_predict():
-    MODEL_DIR = "./IOB_model_1"
+    MODEL_DIR = "./IOB_model"
     MAX_LENGTH = 128
 
     path = input("Chemin du fichier à prédire (json/jsonl) > ").strip()
@@ -55,9 +55,36 @@ def run_predict():
 
 def run_al():
     """
-    Lance la boucle AL telle quelle.
+    Lance la boucle AL.
+    Définis les chemins et les huperparamètres pour al_loop
     """
-    al_loop.main()
+    config = {
+        # Chemins 
+        "MODEL_DIR":      "./IOB_model_1",
+        "BEST_MODEL_DIR": "./best_model",
+        "LABELED":        "./dataset/train.json",
+        "VAL":            "./dataset/valid.json",
+        "POOL":           "./dataset/test_pool.json",
+        "TO_ANNOTATE":    "./dataset/to_annotate.json",
+        "ANNOTATED":      "./dataset/annotated.json",
+        # Hyperparamètres retrain
+        "MAX_LENGTH":     128,
+        "EPOCHS":         15,
+        "BATCH_SIZE":     8,
+        "LR":             1e-5,
+        "PATIENCE":       5,
+        # Hyperparamètres AL loops
+        "AL_ITERS":       3,
+        "K_UNCERTAIN":    35,
+        "K_FN_UNCERTAIN": 5,
+        "AL_STRATEGY":    "kmeans_semantic",   # combined|entropy|semantic|maxmin|kmeans_semantic
+        # Hyperparamètres sampler 
+        "SAMPLER_K":      10,
+        "SAMPLER_BATCH":  16,
+        "SAMPLER_ALPHA":  0.5,
+        "SAMPLER_BETA":   0.5,
+    }
+    al_loop.main(config)
 
 
 def main():
