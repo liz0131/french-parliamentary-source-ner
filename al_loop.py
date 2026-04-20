@@ -202,9 +202,10 @@ def main(config: dict):
     TO_ANNOTATE    = cfg["TO_ANNOTATE"]
     ANNOTATED      = cfg["ANNOTATED"]
     AL_ITERS       = cfg["AL_ITERS"]
-    K_UNCERTAIN    = cfg["K_UNCERTAIN"]
-    K_FN_UNCERTAIN = cfg["K_FN_UNCERTAIN"]
-    AL_STRATEGY    = cfg["AL_STRATEGY"]
+    K_POSITIVE     = cfg["K_POSITIVE"]
+    K_NEGATIVE     = cfg["K_NEGATIVE"]
+    N_PREFILTER    = cfg.get("N_PREFILTER", 2000)
+    KMEANS_RATIO   = cfg.get("KMEANS_RATIO", 0.6)
 
     ner = CamembertNER(max_length=cfg["MAX_LENGTH"])
 
@@ -231,7 +232,7 @@ def main(config: dict):
         print(f"\n===== AL ITERATION {it+1}/{AL_ITERS} =====")
         print(f"Labeled size: {len(labeled)} | Pool size: {len(pool)}")
 
-        # 1) train (ou re-train)
+        # 1) warm start / entraînement
         if it == 0 :
             if saved_model:
                 print(f"Warm start: loading existing model from {MODEL_DIR}")
@@ -253,109 +254,86 @@ def main(config: dict):
                     patience =5
                 )
                 print(f"Le meilleure F1 micro: {current_f1:.4f}")
-
-            # Comparer et sauvegarder si meilleur 
+                # Comparer et sauvegarder si meilleur 
                 best_f1 = get_best_model(ner, current_f1, best_f1, MODEL_DIR, BEST_MODEL_DIR, it+1)
-
-            # 2) load best model
+        
         else : 
             ner.load(BEST_MODEL_DIR)
 
+        # 2) Initialisation du sampler
         sampler = UncertaintySampler(ner, k=10, batch_size=16, alpha=0.5, beta=0.5)   
-
-        # 3) score pool
         sampler.labeled_cache(labeled)  # labeled embedding cache
 
-        scores_dict = sampler.get_score(pool, strategy=AL_STRATEGY, method="entropy", agg="max", n_clusters=K_UNCERTAIN)
-        combined = scores_dict["Combined score"]
-        p_raws = scores_dict.get("P score", [0.0] * len(pool))
+        # 3) Stratégie combiné et score
+            # scores_dict = sampler.get_score(pool, strategy=AL_STRATEGY, method="entropy", agg="max", n_clusters=K_UNCERTAIN)
+            # combined = scores_dict["Combined score"]
+        result = sampler.combined_strategy(
+            unlabeled_data=pool,
+            n_positive=K_POSITIVE,
+            n_negative=K_NEGATIVE,
+            n_prefilter=N_PREFILTER,
+            kmeans_ratio=KMEANS_RATIO, 
+            method="entropy"
+        )
 
-        scored = []
-        no_src_candidates = []
+        positive_idx = result["positive_idx"]
+        negative_idx = result["negative_idx"]
+        km_idx_set = set(result["km_idx"])
+        long_idx_set = set(result["long_idx"])
 
-        for i, item in enumerate(pool):
-            phrase = item.get("text", "")
-            if not phrase:
-                continue
-
-            tokens = item.get("tokens") or ner.simple_tokenize(phrase)
-            _, pred_labels, _, _ = ner.uncertainty_sampling(tokens=tokens)
-
-            entry = (combined[i], p_raws[i], item, tokens, pred_labels)
-
-            if all(lab == "O" for lab in pred_labels):
-                no_src_candidates.append(entry)
-            else:
-                scored.append(entry)
-
-        # 4) select uncertain (top-K) avec priorité aux entités longues
-        scored.sort(key=lambda x: x[0], reverse=True)
-        # Filtrer les phrases qui contient label I-SRC dans top 3*k pool
-        top_pool = scored[:K_UNCERTAIN*3]
-
-        long_entity_picked = []
-        normal_picked = []
-
-        for u, p_raw, item, tokens, pred_labels in top_pool:
-            has_i_label = any(lab =="I-SRC" for lab in pred_labels)
-            if has_i_label:
-                long_entity_picked.append((u, p_raw, item, tokens, pred_labels))
-            else :
-                normal_picked.append((u, p_raw, item, tokens, pred_labels))
-
-        # Choisir les phrases contiennent I-SRC en priorité, 
-        picked_uncertain = (long_entity_picked + normal_picked)[:K_UNCERTAIN]
-
-        print(f"Sélection: {len(long_entity_picked)} entités longues + {max(0, len(picked_uncertain)-len(long_entity_picked))} normaux"
-              f"Total: {len(picked_uncertain)}")
-
-        # 5) select FN : sélection sémantique par proximité à la frontière
-        # p_raw élevé parmi les échantillons "tout O" = sémantiquement proche du voisinage positif
-        no_src_candidates.sort(key=lambda x: x[1], reverse=True)    # trie par p_raw décroissant
-        picked_fn = no_src_candidates[:K_FN_UNCERTAIN]
-
-        # 6) export to_annotate.jsonl
+        # 4) Export to_annotate.json
         to_annotate = []
 
-        # a) incertain
-        for u, p_raw, item, tokens, pred_labels in picked_uncertain:
+        for idx in positive_idx:
+            item = pool[idx]
+            tokens = item.get("tokens") or ner.simple_tokenize(item.get("text",""))
+            _, pred_labels, uncertainty, _ = sampler.predict_with_uncertainty(tokens=tokens, method="entropy", agg="max")
+            
+            if idx in km_idx_set:
+                mode = "kmeans"
+            elif idx in long_idx_set:
+                mode = "long_entity"
+            else:
+                mode = "uncertain"
+            
             to_annotate.append({
                 "uid": item.get("uid"),
                 "id": item.get("id"),
                 "text": item.get("text"),
                 "tokens": tokens,
-                "labels_pred": pred_labels,
-                "uncertainty": u,
-                "p_raw" : p_raw,
-                "mode": "long_entity" if has_i_label else "uncertain"  # Peut-être cas peu de uncertain, choix de long_entité à limiter, en parallèle?
+                "pred_labels": pred_labels,
+                "uncertainty": uncertainty,
+                "long_score": UncertaintySampler.long_entity_score(pred_labels),
+                "mode": mode
             })
 
-        # b) FN incertain - sélection par p_raw décroissan
-        for u, p_raw, item, tokens, pred_labels in picked_fn:
+        for idx in negative_idx:
+            item = pool[idx]
+            tokens = item.get("tokens") or ner.simple_tokenize(item.get("text",""))
+            _, pred_labels, uncertainty, _ = sampler.predict_with_uncertainty(tokens=tokens, method="entropy", agg="max")
             to_annotate.append({
                 "uid": item.get("uid"),
                 "id": item.get("id"),
                 "text": item.get("text"),
                 "tokens": tokens,
-                "labels_pred": pred_labels, 
-                "uncertainty": u,
-                "p_raw" : p_raw,
-                "mode": "fn_incertain"
+                "pred_labels": pred_labels,
+                "uncertainty": uncertainty,
+                "long_score": 0.0,
+                "mode": "p_raw_negative"
             })
 
         write_jsonl(TO_ANNOTATE, to_annotate)
         print(f"Saved {len(to_annotate)} items to annotate -> {TO_ANNOTATE}")
-
-        # 7) annotation humaine
+        print(f"positive={len(km_idx_set)+len(long_idx_set)}"
+              f"negative={len(negative_idx)}")
+        # 5) Annotation humaine
         get_annotations(TO_ANNOTATE, ANNOTATED)
 
-
-        # 8) import annotated (doit contenir tokens + labels gold)
+        # 6) Import des annotations gold
         new_items = read_jsonl(ANNOTATED)
-        # on attend format: {"uid":..,"id":..,"tokens":[...],"labels":[...]}
         new_items = ner.convert_to_typed_iob(new_items)
 
-        # 9) update labeled
+        # 7) Mise à jour du labeled set
         labeled_id = make_id_set(labeled)
         added = 0
         for ex in new_items:
@@ -364,19 +342,18 @@ def main(config: dict):
                 added += 1
         print(f"Added {added} new labeled examples.")
 
-        # 10) remove selected from pool
+        # 8) Mise à jour du pool
         selected_ids = set([x.get("id") for x in to_annotate if x.get("id") is not None])
         pool = remove_selected_from_pool(pool, selected_ids)
         print(f"Pool updated. Remaining: {len(pool)}")
 
-        # 11) save updated datasets
+        # 9) Sauvegarde du datasets mis-à-jour
         write_jsonl(LABELED, labeled)
         write_jsonl(POOL, pool)
         print("Saved updated labeled.jsonl and pool.jsonl")
 
-        # 12) Retrain après annotation
+        # 10) Retrain après annotation
         print(f"Entraînement du modèle (itération {it+1})...")
-
         retrain_f1 = ner.train(
             train_data=labeled,
             val_data=val,
@@ -387,7 +364,6 @@ def main(config: dict):
             patience = 5
         )
         print(f"Le meilleure F1 micro: {retrain_f1:.4f}")
-
         best_f1_micro = get_best_model(ner, retrain_f1, best_f1, MODEL_DIR, BEST_MODEL_DIR, it+1)
 
     print(f"Meilleur F1 global atteint: {best_f1_micro:.4f}")
