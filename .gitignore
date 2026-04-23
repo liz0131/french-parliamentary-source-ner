@@ -4,4 +4,14 @@ __pycache__/
 checkpoints/
 *.pt
 *.bin
-data/
+data/.DS_Store
+__pycache__/
+best_model/
+check_point/
+training/
+dataset/
+*.json
+*.xlsx
+*.numbers
+*.odt
+*.ipynb
