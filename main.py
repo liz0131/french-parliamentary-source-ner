@@ -77,7 +77,9 @@ def run_al():
         "AL_ITERS":       3,
         "K_UNCERTAIN":    35,
         "K_FN_UNCERTAIN": 5,
-        "AL_STRATEGY":    "kmeans_semantic",   # combined|entropy|semantic|maxmin|kmeans_semantic
+        "N_PREFILTER":    2000,
+        "KMEANS_RATIO":   0.6,
+        "AL_STRATEGY":    "kmeans_fp",   # combined|entropy|semantic|maxmin|kmeans_semantic
         # Hyperparamètres sampler 
         "SAMPLER_K":      10,
         "SAMPLER_BATCH":  16,

@@ -4,7 +4,8 @@ import random
 import shutil
 from typing import List
 from camembert_model import CamembertNER
-from uncertainty import UncertaintySampler
+from al_strategies import ALStrategies
+# from uncertainty import UncertaintySampler
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -116,7 +117,7 @@ def get_annotations(to_annotate_path: str, annotated_path:str) -> None :
         item_id = item.get("id")
         uid = item.get("uid")
         tokens = item.get("tokens") or []
-        pred = item.get("labels_pred") or ["O"]*len(tokens)
+        pred = item.get("pred_labels") or ["O"]*len(tokens)
         text = item.get("text", "")
 
         current = (done.get(item_id, {}).get("labels")or pred)[:]   # copie de la liste
@@ -189,9 +190,6 @@ def get_annotations(to_annotate_path: str, annotated_path:str) -> None :
     write_jsonl(annotated_path, saved)
     print(f"\n Merci pour l'annotation. Résultats enregistrés à {annotated_path}")
 
-        
-
-
 def main(config: dict):
     cfg = config 
     MODEL_DIR      = cfg["MODEL_DIR"]
@@ -201,6 +199,7 @@ def main(config: dict):
     POOL           = cfg["POOL"]
     TO_ANNOTATE    = cfg["TO_ANNOTATE"]
     ANNOTATED      = cfg["ANNOTATED"]
+    AL_STRATEGY    = cfg["AL_STRATEGY"]
     AL_ITERS       = cfg["AL_ITERS"]
     K_POSITIVE     = cfg["K_POSITIVE"]
     K_NEGATIVE     = cfg["K_NEGATIVE"]
@@ -219,7 +218,7 @@ def main(config: dict):
 
     # Charger le meilleur F1 connu
     best_f1 = load_best_f1(BEST_MODEL_DIR)
-    best_f1_micro = best_f1
+    # best_f1_micro = best_f1
     print(f"Meilleur F1 micro : {best_f1: 4f}")
 
     # Vérifier si un modèle existe pour warm start
@@ -261,14 +260,16 @@ def main(config: dict):
             ner.load(BEST_MODEL_DIR)
 
         # 2) Initialisation du sampler
-        sampler = UncertaintySampler(ner, k=10, batch_size=16, alpha=0.5, beta=0.5)   
+        # sampler = UncertaintySampler(ner, k=10, batch_size=16, alpha=0.5, beta=0.5) 
+        sampler = ALStrategies(ner, k=10, batch_size=16)
         sampler.labeled_cache(labeled)  # labeled embedding cache
 
         # 3) Stratégie combiné et score
             # scores_dict = sampler.get_score(pool, strategy=AL_STRATEGY, method="entropy", agg="max", n_clusters=K_UNCERTAIN)
             # combined = scores_dict["Combined score"]
-        result = sampler.combined_strategy(
+        result = sampler.run(
             unlabeled_data=pool,
+            strategy=AL_STRATEGY,
             n_positive=K_POSITIVE,
             n_negative=K_NEGATIVE,
             n_prefilter=N_PREFILTER,
@@ -279,7 +280,7 @@ def main(config: dict):
         positive_idx = result["positive_idx"]
         negative_idx = result["negative_idx"]
         km_idx_set = set(result["km_idx"])
-        long_idx_set = set(result["long_idx"])
+        long_idx_set = set(result["extra_idx"])
 
         # 4) Export to_annotate.json
         to_annotate = []
@@ -287,7 +288,7 @@ def main(config: dict):
         for idx in positive_idx:
             item = pool[idx]
             tokens = item.get("tokens") or ner.simple_tokenize(item.get("text",""))
-            _, pred_labels, uncertainty, _ = sampler.predict_with_uncertainty(tokens=tokens, method="entropy", agg="max")
+            _, pred_labels, uncertainty, _ = sampler.uncertainty_sampling(tokens=tokens, method="entropy", agg="max")
             
             if idx in km_idx_set:
                 mode = "kmeans"
@@ -303,14 +304,14 @@ def main(config: dict):
                 "tokens": tokens,
                 "pred_labels": pred_labels,
                 "uncertainty": uncertainty,
-                "long_score": UncertaintySampler.long_entity_score(pred_labels),
+                "long_score": ALStrategies.long_entity_score(pred_labels),
                 "mode": mode
             })
 
         for idx in negative_idx:
             item = pool[idx]
             tokens = item.get("tokens") or ner.simple_tokenize(item.get("text",""))
-            _, pred_labels, uncertainty, _ = sampler.predict_with_uncertainty(tokens=tokens, method="entropy", agg="max")
+            _, pred_labels, uncertainty, _ = sampler.uncertainty_sampling(tokens=tokens, method="entropy", agg="max")
             to_annotate.append({
                 "uid": item.get("uid"),
                 "id": item.get("id"),
@@ -364,7 +365,7 @@ def main(config: dict):
             patience = 5
         )
         print(f"Le meilleure F1 micro: {retrain_f1:.4f}")
-        best_f1_micro = get_best_model(ner, retrain_f1, best_f1, MODEL_DIR, BEST_MODEL_DIR, it+1)
+        best_f1 = get_best_model(ner, retrain_f1, best_f1, MODEL_DIR, BEST_MODEL_DIR, it+1)
 
-    print(f"Meilleur F1 global atteint: {best_f1_micro:.4f}")
+    print(f"Meilleur F1 global atteint: {best_f1:.4f}")
     print(f"Meilleur modèle sauvegardé dans: {BEST_MODEL_DIR}")
