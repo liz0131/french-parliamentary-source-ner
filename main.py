@@ -8,7 +8,7 @@ def run_train():
     VAL_FILE = "./dataset/valid.json"
     MODEL_DIR = "./IOB_model"
 
-    EPOCHS = 15
+    EPOCHS = 30
     BATCH_SIZE = 8
     LR = 2e-5
     MAX_LENGTH = 128
@@ -75,9 +75,9 @@ def run_al():
         "PATIENCE":       5,
         # Hyperparamètres AL loops
         "AL_ITERS":       3,
-        "K_UNCERTAIN":    35,
-        "K_FN_UNCERTAIN": 5,
-        "N_PREFILTER":    2000,
+        "K_POSITIVE":     32,
+        "K_NEGATIVE":     18,
+        "N_PREFILTER":    1000,
         "KMEANS_RATIO":   0.6,
         "AL_STRATEGY":    "kmeans_fp",   # combined|entropy|semantic|maxmin|kmeans_semantic
         # Hyperparamètres sampler 

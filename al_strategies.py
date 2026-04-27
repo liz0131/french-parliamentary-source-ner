@@ -90,7 +90,7 @@ class ALStrategies:
                 labeled_neg_emb = self._labeled_embeddings[~self._labeled_has_entity]
                 if remain_pos_idx and labeled_neg_emb.shape[0] > 0:
                     remain_data     = [unlabeled_data[i] for i in remain_pos_idx]
-                    remain_emb_norm = self._normalize(self._sentence_embedding(remain_data))
+                    remain_emb_norm = self._normalize(self.sentence_embedding(remain_data))
                     sim_to_neg      = remain_emb_norm @ labeled_neg_emb.T
                     max_sim_to_neg  = sim_to_neg.max(axis=1)
                     scored = sorted(zip(max_sim_to_neg.tolist(), remain_pos_idx), reverse=True)

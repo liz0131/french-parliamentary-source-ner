@@ -280,7 +280,7 @@ def main(config: dict):
         positive_idx = result["positive_idx"]
         negative_idx = result["negative_idx"]
         km_idx_set = set(result["km_idx"])
-        long_idx_set = set(result["extra_idx"])
+        extra_idx_set = set(result["extra_idx"])
 
         # 4) Export to_annotate.json
         to_annotate = []
@@ -292,8 +292,8 @@ def main(config: dict):
             
             if idx in km_idx_set:
                 mode = "kmeans"
-            elif idx in long_idx_set:
-                mode = "long_entity"
+            elif idx in extra_idx_set:
+                mode = result["strategy"]  # "long_entity" ou "fp_score"
             else:
                 mode = "uncertain"
             
@@ -320,12 +320,12 @@ def main(config: dict):
                 "pred_labels": pred_labels,
                 "uncertainty": uncertainty,
                 "long_score": 0.0,
-                "mode": "p_raw_negative"
+                "mode": "km_negative"
             })
 
         write_jsonl(TO_ANNOTATE, to_annotate)
         print(f"Saved {len(to_annotate)} items to annotate -> {TO_ANNOTATE}")
-        print(f"positive={len(km_idx_set)+len(long_idx_set)}"
+        print(f"positive={len(km_idx_set)+len(extra_idx_set)}"
               f"negative={len(negative_idx)}")
         # 5) Annotation humaine
         get_annotations(TO_ANNOTATE, ANNOTATED)

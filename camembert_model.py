@@ -50,7 +50,8 @@ class CamembertNER:
 
     def __init__(self, model_name="camembert-base", labels=None, max_length=128):
         if labels is None:
-            labels = ["B-SRC", "I-SRC", "O"]
+            # labels = ["B-SRC", "I-SRC", "O"]
+            labels = ["O", "B-SRC", "I-SRC"]
 
         self.model_name = model_name
         self.labels = labels
