@@ -1,22 +1,24 @@
 import os
 import re
 import json
-import math
 import torch, random
 import numpy as np
 import matplotlib.pyplot as plt
+
+from tqdm import tqdm
 
 from torch.utils.data import Dataset, DataLoader
 from torch.nn import CrossEntropyLoss
 from torch.optim import AdamW
 
 from transformers import CamembertTokenizerFast, CamembertForTokenClassification
-from transformers import get_linear_schedule_with_warmup 
 
 from seqeval.metrics import classification_report as seq_classification_report, f1_score as seq_f1_score
 import sklearn.metrics as sk_metrics
 from sklearn.metrics import precision_recall_fscore_support
-from sklearn.utils.class_weight import compute_class_weight
+
+# from postprocess import postprocess
+# à décommenter avec ligne 475 pour appliquer postprocess
 
 seed = 42
 os.environ["PYTHONHASHSEED"] = str(seed)
@@ -27,8 +29,7 @@ torch.cuda.manual_seed_all(seed)
 
 class TokenDataset(Dataset):
     """
-    Dataset minimal PyTorch : juste __len__ et __getitem__.
-    On lui donne une liste d'exemples déjà encodés (tensors).
+    Dataset PyTorch qui encapsule une liste d'exemples déjà encodés (tensors).
     """
     def __init__(self, examples):
         self.examples = examples
@@ -42,15 +43,15 @@ class TokenDataset(Dataset):
 
 class CamembertNER:
     """
-    - charge des JSONL IOB (tokens + labels)
-    - encode avec tokenizer
-    - train + evaluate
-    - save/load
+    Modèle NER basé sur CamemBERT-base :
+    - charge des exemples annotés au format IOB (tokens + labels)
+    - encode les données avec avec tokenizer
+    - train + evaluate + predict
+    - save + load model
     """
 
     def __init__(self, model_name="camembert-base", labels=None, max_length=128):
         if labels is None:
-            # labels = ["B-SRC", "I-SRC", "O"]
             labels = ["O", "B-SRC", "I-SRC"]
 
         self.model_name = model_name
@@ -83,10 +84,7 @@ class CamembertNER:
         return data
 
     def convert_to_typed_iob(self, data):
-        """
-        Convertit B/I/O -> B-SRC/I-SRC/O.
-        Si déjà en B-SRC/I-SRC/O, ça ne change rien.
-        """
+        """Convertit B/I/O -> B-SRC/I-SRC/O."""
         conv = {"B": "B-SRC", "I": "I-SRC", "O": "O"}
         out = []
         for ex in data:
@@ -109,9 +107,7 @@ class CamembertNER:
         self.model.to(self.device)
 
     def freeze_layers(self, num_frozen_layers=4):
-        """
-        Gèle les n premières couches pour réduire les pramètres entraînable 
-        """
+        """Gèle les n premières couches pour réduire les pramètres entraînable"""
         # Geler les embeddings 
         for param in self.model.roberta.embeddings.parameters():
             param.requires_grad = False
@@ -202,9 +198,7 @@ class CamembertNER:
 
     # -------- Train / Eval --------
     def train(self, train_data, val_data, model_dir, epochs=10, batch_size=8, lr=3e-5, patience=5):
-        """
-        Entraîne et sauvegarde le meilleur modèle (selon F1 micro seqeval).
-        """
+        """ Entraîne et sauvegarde le meilleur modèle."""
         if self.model is None or self.tokenizer is None:
             self.init_for_train()
 
@@ -217,27 +211,13 @@ class CamembertNER:
         g.manual_seed(seed)
 
         train_loader = DataLoader(TokenDataset(train_encoded), batch_size=batch_size, shuffle=True, generator=g)
-        # ajoute d'évaluation du train
+        # ajout d'évaluation du train
         train_loader_eval = DataLoader(TokenDataset(train_encoded), batch_size=batch_size, shuffle=False)
         val_loader = DataLoader(TokenDataset(val_encoded), batch_size=batch_size, shuffle=False)
 
         # ajout de weight decay pour limiter overfitting
         optimizer = AdamW(self.model.parameters(), lr=lr, weight_decay=0.01) 
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.3, patience=2, min_lr=1e-6)   
-        # total_steps = len(train_loader)*epochs
-        # Scheduler : augmente lr prograssivement au début et diminue liérairement à la fin de l'entrainment
-        # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=int(0.1*total_steps), num_training_steps=total_steps)
-        # weight_map = {"B-SRC": 2.0, "I-SRC": 1.5, "O": 1.0}
-        # class_weights = torch.tensor(
-            # [weight_map[l] for l in self.labels], dtype=torch.float
-        #).to(self.device)
-        # all_labels_flat = [lab for ex in train_data for lab in ex["labels"]]
-        # Calcule weight automatiquement : weight=nb_tokens/(nb_classes*occurrences_classe)
-        # raw_weight = compute_class_weight("balanced", classes=np.array(self.labels), y=np.array(all_labels_flat))
-        # alpha = 0.07
-        # scaled_weight = 1.0 +alpha*(raw_weight-1.0)
-        # print(f"Class weights: { {l: round(w,3) for l,w in zip(self.labels, scaled_weight)} }")
-        # class_weights = torch.tensor(scaled_weight, dtype=torch.float).to(self.device)
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.3, patience=3, min_lr=1e-6)   
         loss_fct = CrossEntropyLoss(ignore_index=-100)
 
         best_f1 = -1.0
@@ -278,9 +258,9 @@ class CamembertNER:
             print(f"[VALID] F1 micro:{val_f1:.4f}")
             print(f"[VALID] Token F1 (B/I): {val_metrics['token_f1_micro']:.4f}")
 
-            scheduler.step(val_f1)
-            current_lr = optimizer.param_groups[0]['lr']
-            print(f"[LR] {current_lr:.2e}")
+            # scheduler.step(val_f1)
+            # current_lr = optimizer.param_groups[0]['lr']
+            # print(f"[LR] {current_lr:.2e}")
 
             gap = train_f1 - val_f1
             print(f"[Gap train_valid] {gap:+.4f}{'Overfitting!' if gap > 0.15 else ''}")
@@ -295,7 +275,8 @@ class CamembertNER:
             history["gap"].append(gap)
             history["token_f1"].append(val_metrics["token_f1_micro"])
 
-            # Ajout de early stopping 
+            self.save(model_dir + "_last") 
+            # Early stopping selon validation seqeval F1
             current_f1 = val_metrics["seqeval_f1_micro"]
             if current_f1>best_f1:
                 best_f1=current_f1
@@ -308,6 +289,7 @@ class CamembertNER:
                 if no_improve >= patience:
                     print(f"Early stopping at epoch {epoch+1}. Best F1 micro={best_f1:.4f}")
                     break
+            
 
         fig, ax = plt.subplots(2,1,figsize=(8, 8), sharex=True)
         ax[0].plot(history["train_f1"], label="Train F1", color="#F97306")
@@ -403,7 +385,7 @@ class CamembertNER:
     
     def evaluate_data(self, val_data, batch_size=8):
         """
-        Évalue sur des données brutes (format JSONL).
+        Évalue sur des données brutes (format JSON).
         Encode les données puis appelle evaluate().
         Retourne le F1 micro.
         """
@@ -419,60 +401,91 @@ class CamembertNER:
         text = re.sub(r"\s+", " ", text).strip()
         return text.split()
     
-    def predict_jsonl(self, input_path, output_path=None):
+    def predict_jsonl(self, input_path, output_path=None, batch_size=64):
         if self.model is None or self.tokenizer is None:
             raise RuntimeError("Model not loaded.")
 
-        results = []
+        items = []
 
         with open(input_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
                     continue
-
                 item = json.loads(line)
-                uid = item.get("uid")
-                sent_id = item.get("id")
-                phrase = item.get("text", "")
+                if item.get("text", ""):
+                    items.append(item)
 
-                if not phrase:
-                    continue
+        results = []
+        self.model.eval()
 
-                words = self.simple_tokenize(phrase)
+        for batch_start in tqdm(range(0, len(items), batch_size), desc="Predicting"):
+            batch_items = items[batch_start: batch_start + batch_size]
+            batch_words = [
+                it.get("tokens")
+                if it.get("tokens")
+                else self.simple_tokenize(it.get("text", ""))
+                for it in batch_items
+            ]
 
-                encoded = self.tokenizer(
-                    words,
-                    return_tensors="pt",
-                    truncation=True,
-                    padding=True,
-                    is_split_into_words=True
-                )
+            encoded = self.tokenizer(
+                batch_words,
+                return_tensors="pt",
+                truncation=True,
+                padding=True,          # padding dynamique : pad au max du batch courant, éventuellement à max_length si troncature
+                max_length=self.max_length,
+                is_split_into_words=True
+            )
 
-                word_ids = encoded.word_ids(batch_index=0)
-                inputs = {k: v.to(self.device) for k, v in encoded.items()}
+            word_ids_batch = [encoded.word_ids(batch_index=i) for i in range(len(batch_items))]
+            inputs = {k: v.to(self.device) for k, v in encoded.items()}
 
-                with torch.no_grad():
-                    logits = self.model(**inputs).logits
-
-                preds = torch.argmax(logits, dim=-1)[0].tolist()
+            with torch.no_grad():
+                logits = self.model(**inputs).logits
+                probs = torch.softmax(logits, dim=-1)
+                
+            preds_batch = torch.argmax(logits, dim=-1).tolist()  # [B, seq_len]
+                # probs = torch.softmax(logits, dim=-1)[0]
+            for batch_idx, item in enumerate(batch_items):
+                word_ids = word_ids_batch[batch_idx]
+                preds = preds_batch[batch_idx]
+                b_src_id = self.label2id["B-SRC"]  
+                i_src_id = self.label2id["I-SRC"]  
 
                 word_preds = []
+                word_b_probs = []
+                word_i_probs = []
                 prev = None
-                for i, wid in enumerate(word_ids):
+                for token_idx, wid in enumerate(word_ids):
                     if wid is None:
                         continue
                     if wid != prev:
-                        word_preds.append(self.id2label.get(preds[i], "O"))
+                        word_preds.append(self.id2label.get(preds[token_idx], "O"))
+                        word_b_probs.append(float(probs[batch_idx, token_idx, b_src_id]))
+                        word_i_probs.append(float(probs[batch_idx, token_idx, i_src_id]))
                     prev = wid
 
+                n_words = len(batch_words[batch_idx])
+                if len(word_preds) < n_words:
+                    n_missing = n_words - len(word_preds)
+                    word_preds.extend(["O"] * n_missing)
+                    word_b_probs.extend([0.0] * n_missing)
+                    word_i_probs.extend([0.0] * n_missing)
+                
+                # word_preds = postprocess(word_preds, word_i_probs, word_b_probs)
+
                 results.append({
-                    "uid": uid,
-                    "id": sent_id,
-                    "text": phrase,
-                    "tokens": words,
-                    "labels": word_preds
+                    "uid": item.get("uid"),
+                    "id": item.get("id"),
+                    "text": item.get("text"),
+                    "tokens": batch_words[batch_idx],
+                    "labels": word_preds,
+                    # "b_probs": word_b_probs,
+                    # "i_probs": word_i_probs,   
                 })
+            
+            if (batch_start // batch_size) % 100 == 0:
+                print(f"  {batch_start + len(batch_items)}/{len(items)} phrases traitées...")
 
         if output_path is None:
             output_path = os.path.join(
@@ -485,75 +498,3 @@ class CamembertNER:
 
         return output_path
     
-    def uncertainty_sampling(self, phrase=None, tokens=None, method="entropy", agg="topk", topk=5):
-        """
-        méthode : entropy, margin
-        aggrégation : topk, max, mean
-        """
-        if self.model is None or self.tokenizer is None : 
-            raise RuntimeError("Model not loaded")
-        
-        if tokens is None:
-            if phrase is None:
-                raise ValueError("Provide phrase or tokens")
-            tokens = self.simple_tokenize(phrase)
-        
-        encoded = self.tokenizer(
-            tokens,
-            return_tensors="pt",
-            truncation=True,
-            padding=True,
-            is_split_into_words=True
-        )
-        word_ids = encoded.word_ids(batch_index=0) 
-        inputs = {k:v.to(self.device) for k,v in encoded.items()}
-
-        with torch.no_grad():
-            logits = self.model(**inputs).logits[0] # [seq_len, num_labels]
-            probs = torch.softmax(logits, dim=-1)
-            # probs = torch.softmax(logits, dim=-1)[0]  # [seq_len, num_labels]
-            # preds = torch.argmax(probs, dim=-1).tolist()
-
-        # Prend subword de chaque mot
-        word_probs=[]
-        prev = None
-        for i, wid in enumerate(word_ids):
-            if wid is None : 
-                continue 
-            if wid!=prev : 
-                word_probs.append(probs[i].detach().cpu())
-            prev = wid
-        
-        if len(word_probs) == 0 :
-            return tokens, [], 0.0, []  
-        
-        word_probs = torch.stack(word_probs, dim=0)
-        pred_ids = torch.argmax(word_probs, dim=-1).tolist()
-        word_preds = [self.id2label.get(i,"O") for i in pred_ids]
-
-        if method == "entropy":
-            eps = 1e-12
-            num_labels = word_probs.shape[-1]
-            word_uncert = -(word_probs * torch.log(word_probs + eps)).sum(dim=-1)
-            word_uncert = (word_uncert / math.log(num_labels)).tolist()   # Normolized entropy to [0,1]
-        elif method == "margin":
-            # 1 - (p1 - p2)
-            top2 = torch.topk(word_probs, k=2, dim=-1).values
-            margin = top2[:, 0] - top2[:, 1]
-            word_uncert = (1.0 - margin).tolist()
-        else:
-            raise ValueError("method must be 'entropy' or 'margin'")
-        
-        # sentence aggregation
-        if agg == "mean":
-            score = float(sum(word_uncert) / max(1, len(word_uncert)))
-        elif agg == "max":
-            score = float(max(word_uncert))
-        elif agg == "topk":
-            k = min(topk, len(word_uncert))
-            score = float(sum(sorted(word_uncert, reverse=True)[:k]) / k)
-        else:
-            raise ValueError("agg must be 'mean', 'max', or 'topk'")
-
-        return tokens, word_preds, score, word_uncert
-

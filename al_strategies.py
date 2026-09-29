@@ -1,30 +1,102 @@
 import math
+import random
 import torch
 import numpy as np
 from sklearn.cluster import KMeans
 
 class ALStrategies: 
+    """
+    Stratégies AL pour 4 groupes expériementaux :
+    Group 1 : random baseline - sélection aléaoitre 
+    Group 2 : entropy_kmeans  - préfiltrage entropie + kmeans avec sélection intra-cluster par entropie 
+    Group 3 : kmeans_semantic - préfiltrage entropie + kmeans avec sélection par score de frontière sémantique
+    Group 4 : kmeans_fp_fn    - préfiltrage entropie (60% kmeans_semantic + 20% FP-score) + 20% FN-score
+    """
+
+    STRATEGIES = ("random", "entropy_kmeans", "kmeans_semantic", "kmeans_fp_fn")
+    
     def __init__(self, ner_model, k: int=10, batch_size: int=16): 
         self.ner = ner_model
         self.k = k
         self.batch_size = batch_size
 
-        self._labeled_embeddings = None
-        self._labeled_has_entity = None
+        self._labeled_embeddings = None  # Embeddings normalisés du labeled set
+        self._labeled_has_entity = None  
 
-    def run(self, unlabeled_data: list, strategy: str = "kmeans_fp", 
-            n_positive: int=64, n_negative: int=36, n_prefilter: int=1000, n_clusters: int=None, 
-            kmeans_ratio: float=0.75, method: str="entropy", random_state: int=42) -> dict : 
-        if strategy not in ("kmeans_long", "kmeans_fp"):
-            raise ValueError(f"Entrez la bonne AL stratégie.")
-        if strategy == "kmeans_long":
-            step3 ="long_entity"
-        else :
-            step3 ="fp_score"
-        return self.combined_strategy(
-            unlabeled_data, n_positive, n_negative, n_prefilter, 
-            n_clusters, kmeans_ratio, method, random_state, step3
+    def run(self, unlabeled_data: list, strategy: str = "kmeans_fp_fn", 
+            n_positive: int=120, n_negative: int=30, n_prefilter: int=3000, n_clusters: int=None, 
+            kmeans_ratio: float=0.60, fn_ratio: float = 0.20, method: str="entropy", random_state: int=42) -> dict : 
+        if strategy not in self.STRATEGIES:
+            raise ValueError(f"Choisissez une AL stratégie parmi {self.STRATEGIES}.")
+        if strategy == "random":
+            return self.random_sampling(unlabeled_data, n_positive, n_negative, random_state) 
+
+        if self._labeled_embeddings is None:
+            raise RuntimeError("Cache vide.")
+
+        entropy_scores, pred_labels_all = self._compute_entropy(unlabeled_data, method)
+        pos_candidates, neg_candidates = self._split_pos_neg(entropy_scores, pred_labels_all)
+        top_pos_idx, top_neg_idx, top_pos_data, top_neg_data = self._prefilter(
+            unlabeled_data, pos_candidates, neg_candidates, 
+            n_prefilter, n_positive, n_negative
         )
+        k_nn = min(self.k, len(self._labeled_has_entity))
+
+        fp_idx = []
+        fn_idx = []
+        entropy_idx = []
+
+        if strategy == "entropy_kmeans":
+            positive_idx, km_idx, entropy_idx = self._select_entropy_kmeans_pos(
+                top_pos_data, top_pos_idx, entropy_scores, 
+                n_positive, n_clusters, random_state
+            )
+        
+        elif strategy == "kmeans_semantic":
+            positive_idx, km_idx, entropy_idx = self._select_kmeans_semantic_pos(
+                top_pos_data, top_pos_idx, n_positive, 
+                n_clusters, k_nn, random_state
+            )
+
+        elif strategy == "kmeans_fp_fn":
+            fp_ratio = 1.0 - kmeans_ratio - fn_ratio
+            if fp_ratio < 0:
+                raise ValueError(
+                    f"kmeans_ratio({kmeans_ratio}) + fn_ratio({fn_ratio}) > 1.0"
+                )
+            n_select = n_positive + n_negative
+            n_kmeans = int(n_select*kmeans_ratio)
+            n_fp = int(n_select*fp_ratio)
+            n_fn = n_select - n_kmeans - n_fp
+
+
+            positive_idx, km_idx, fp_idx, fn_idx = self._select_kmeans_fp_fn(
+                unlabeled_data, top_pos_data, top_pos_idx, neg_candidates,
+                n_kmeans, n_fp, n_fn, n_clusters, k_nn, random_state
+            )
+
+        if strategy == "kmeans_fp_fn":
+            negative_idx = fn_idx
+        else:
+            negative_idx = self._select_entropy_neg(
+                top_neg_data, top_neg_idx, entropy_scores, n_negative
+            )
+        
+        print(f"[{strategy}] Total : {len(positive_idx)} positive + {len(negative_idx)} negative"
+              f"={len(positive_idx)+ len(negative_idx)} exemples")
+    
+        return {
+            "positive_idx": positive_idx,
+            "negative_idx": negative_idx,
+            "all_idx": positive_idx+negative_idx,
+            "km_idx": km_idx,
+            "fp_idx": fp_idx,
+            "fn_idx": fn_idx,
+            "entropy_idx": entropy_idx,
+            "pred_labels_all": pred_labels_all,
+            "entropy_scores": entropy_scores,
+            "strategy": strategy,
+        }
         
     def labeled_cache(self, labeled_data: list):
         print(f"Building cache for {len(labeled_data)} labeled examples...")
@@ -38,90 +110,158 @@ class ALStrategies:
         print(f"{n_pos} examples avec entité, {(~has_entity).sum()} examples sans entité"
               f"(ratio pos={n_pos/len(labeled_data):2f})")
     
-    def combined_strategy(self, unlabeled_data, n_positive, n_negative,
-                  n_prefilter, n_clusters, kmeans_ratio, method, random_state, step3):
+    def random_sampling(self, unlabeled_data, n_positive, n_negative, random_state):
         """
-        Stratégie AL combinée — étapes 1, 2, 4 communes, étape 3 paramétrable.
-
-        Étape 1 : entropy + séparation pos/neg + pré-filtrage
-        Étape 2 : kmeans_semantic sur positifs  (kmeans_ratio * n_positive)
-        Étape 3 : complément positifs selon step3 :
-            - "long_entity" : entités longues prédites   (kmeans_long)
-            - "fp_score"    : FP potentiels              (kmeans_fp)
-        Étape 4 : kmeans_semantic sur négatifs
+        sélection aléaoitre.
         """
-        if self._labeled_embeddings is None:
-            raise RuntimeError("Cache vide.")
-        if step3 not in ("long_entity", "fp_score"):
-            raise ValueError("Étape3 doit être long_entity ou fp_score")
+        rng = random.Random(random_state)
+        all_idx = list(range(len(unlabeled_data)))
+        rng.shuffle(all_idx)
+        selected = all_idx[:n_positive+n_negative]
+        positive_idx = selected[:n_positive]
+        negative_idx = selected[n_positive:]
 
-        n_kmeans = int(n_positive * kmeans_ratio)
-        n_extra  = n_positive - n_kmeans
-
-        # --- Étape 1 ---
-        entropy_scores, pred_labels_all = self._compute_entropy(unlabeled_data, method)
-        pos_candidates, neg_candidates  = self._split_pos_neg(entropy_scores, pred_labels_all)
-        top_pos_idx, top_neg_idx, top_pos_data, top_neg_data = self._prefilter(
-            unlabeled_data, pos_candidates, neg_candidates,
-            n_prefilter, n_positive, n_negative
-        )
-
-        k_nn = min(self.k, len(self._labeled_has_entity))
-        km_positive = set()
-        extra_selected = []
-        positive_idx = []
-
-        # --- Étape 2 ---
-        if top_pos_data:
-            km_pos_list, _ = self.kmeans_semantique(
-                top_pos_data, top_pos_idx, n_kmeans, n_clusters, k_nn, random_state
-            )
-            km_positive = set(km_pos_list)
-            remain_pos_idx = [i for i in top_pos_idx if i not in km_positive]
-
-            # --- Étape 3 ---
-            if step3 == "long_entity":
-                scored = [(self._long_entity_score(pred_labels_all[i]), i)
-                          for i in remain_pos_idx]
-                scored.sort(key=lambda x: x[0], reverse=True)
-                extra_selected = [i for _, i in scored[:n_extra]]
-
-            elif step3 == "fp_score":
-                labeled_neg_emb = self._labeled_embeddings[~self._labeled_has_entity]
-                if remain_pos_idx and labeled_neg_emb.shape[0] > 0:
-                    remain_data     = [unlabeled_data[i] for i in remain_pos_idx]
-                    remain_emb_norm = self._normalize(self.sentence_embedding(remain_data))
-                    sim_to_neg      = remain_emb_norm @ labeled_neg_emb.T
-                    max_sim_to_neg  = sim_to_neg.max(axis=1)
-                    scored = sorted(zip(max_sim_to_neg.tolist(), remain_pos_idx), reverse=True)
-                    extra_selected = [i for _, i in scored[:n_extra]]
-                    print(f"[{step3}] top3 sim_to_neg: {[round(s,3) for s,_ in scored[:3]]}")
-                else:
-                    extra_selected = remain_pos_idx[:n_extra]
-                    print(f"[{step3}] fallback sur remain_pos_idx")
-
-            positive_idx = list(km_positive) + extra_selected
-
-        print(f"[{step3}] Positifs : kmeans={len(km_positive)}, {step3}={len(extra_selected)}")
-
-        # --- Étape 4 ---
-        negative_idx, _ = self.kmeans_semantique(
-            top_neg_data, top_neg_idx, n_negative, n_clusters, k_nn, random_state
-        )
-
-        print(f"[{step3}] Total : {len(positive_idx)} pos + {len(negative_idx)} neg "              f"= {len(positive_idx)+len(negative_idx)} exemples")
-
+        pred_labels_all = [[] for _ in unlabeled_data]
+        entropy_scores = [0.0 for _ in unlabeled_data]
+        
+        print(f"[random] {len(positive_idx)} positifs + {len(negative_idx)} neg sêlectoionnés aléatoirement")
         return {
-            "positive_idx":    positive_idx,
-            "negative_idx":    negative_idx,
-            "all_idx":         positive_idx + negative_idx,
-            "km_idx":          list(km_positive),
-            "extra_idx":       extra_selected,
-            "pred_labels_all": pred_labels_all,
-            "entropy_scores":  entropy_scores,
-            "strategy":        step3
+            "positive_idx": positive_idx,
+            "negative_idx": negative_idx,
+            "all_idx": positive_idx + negative_idx, 
+            "km_idx": [],
+            "fp_idx": [],
+            "fn_idx": [],
+            "entropy_idx": [],
+            "pred_labels_all": pred_labels_all, 
+            "entropy_scores": entropy_scores, 
+            "strategy": "random",
         }
 
+    def _select_entropy_kmeans_pos(
+        self, top_pos_data, top_pos_idx, entropy_scores, 
+        n_positive, n_clusters, random_state) : 
+        """
+        Stratégie entropy_kmeans pour exemples positifs:
+        kmeans avec sélection intra-cluster par scorre entropie
+        """
+
+        if not top_pos_data:
+            return [], [], []
+
+        n_clust = min(
+            n_clusters if n_clusters is not None else n_positive,
+            len(top_pos_data)
+        )
+        emb_norm = self._normalize(self.sentence_embedding(top_pos_data))
+        kmeans = KMeans(n_clusters=n_clust, random_state=random_state, n_init=10)
+        cluster_labels = kmeans.fit_predict(emb_norm)
+
+        selected = []
+        for cid in range(n_clust):
+            cluster_local_idx = np.where(cluster_labels == cid)[0]
+            if len(cluster_local_idx) == 0 :
+                continue
+            best_local = max(
+                cluster_local_idx, 
+                key=lambda local_idx: entropy_scores[top_pos_idx[local_idx]]
+            )
+            selected.append(top_pos_idx[best_local])
+
+        selected_set = set(selected)
+        if len(selected) < n_positive:
+            remain = [i for i in top_pos_idx if i not in selected_set]
+            remain.sort(key=lambda i: entropy_scores[i], reverse=True)
+            selected += remain[: n_positive - len(selected)]
+
+        print(f"[entropy_kmeans] {len(selected)} positives sélectionnés")
+        return selected[:n_positive], selected[:n_positive], []
+
+    def _select_kmeans_semantic_pos(
+        self, top_pos_data, top_pos_idx,
+        n_positive, n_clusters, k_nn, random_state):
+        km_list, _ = self.kmeans_semantique(
+            top_pos_data, top_pos_idx, n_positive, n_clusters, k_nn, random_state
+        )
+        print(f"[kmenas_semantic] {len(km_list)} positifs selectés")
+        return km_list, km_list, []
+    
+    def _select_kmeans_fp_fn(
+        self, unlabeled_data, top_pos_data, top_pos_idx, neg_candidates, 
+        n_kmeans, n_fp, n_fn, n_clusters, k_nn, random_state):
+
+        # Branche 1 : kmeans_semantic
+        km_list, _ = self.kmeans_semantique(
+            top_pos_data, top_pos_idx, n_kmeans, n_clusters, k_nn, random_state
+        )
+        km_set = set(km_list)
+
+        # Branche 2 : FP
+        remain_pos_idx = [i for i in top_pos_idx if i not in km_set]
+        fp_selected    = self._select_fp(unlabeled_data, remain_pos_idx, n_fp)
+       
+        # Branche 3 : FN
+        neg_idx_all = [i for _, i in neg_candidates]
+        fn_selected = self._select_fn(unlabeled_data, neg_idx_all, n_fn)
+
+        positive_idx = km_list + fp_selected
+
+        print(f"[kmeans_fp_fn] kmeans={len(km_list)}, fp={len(fp_selected)}, fn={len(fn_selected)}")
+        return positive_idx, km_list, fp_selected, fn_selected
+
+    def _select_entropy_neg(self, top_neg_data, top_neg_idx, entropy_scores, n_negative):
+        if not top_neg_data:
+            return []
+        n_clust = min(n_negative, len(top_neg_data))
+        emb_norm = self._normalize(self.sentence_embedding(top_neg_data))
+        kmeans   = KMeans(n_clusters=n_clust, random_state=42, n_init=10)
+        cluster_labels = kmeans.fit_predict(emb_norm)
+
+        selected = []
+        for cid in range(n_clust):
+            cluster_local_idx = np.where(cluster_labels == cid)[0]
+            if len(cluster_local_idx) == 0 :
+                continue 
+            best_local = max(
+                cluster_local_idx,
+                key=lambda local_idx: entropy_scores[top_neg_idx[local_idx]]
+            )
+            selected.append(top_neg_idx[best_local])
+        # Pour compléter la liste negative si nécessaire
+        if len(selected) < n_negative:
+            selected_set = set(selected)
+            remain = [i for i in top_neg_idx if i not in selected_set]
+            remain.sort(key=lambda i: entropy_scores[i], reverse=True)
+            selected += remain[: n_negative - len(selected)]
+        print(f"{len(selected)} négatifs sélectionnées")
+        return selected[:n_negative]
+
+
+    def _select_fp(self, unlabeled_data, remain_pos_idx, n_fp) :
+        labeled_neg_emb = self._labeled_embeddings[~self._labeled_has_entity]
+        if not remain_pos_idx or labeled_neg_emb.shape[0] == 0:
+            return remain_pos_idx[:n_fp]
+        
+        remain_data     = [unlabeled_data[i] for i in remain_pos_idx]
+        remain_emb_norm = self._normalize(self.sentence_embedding(remain_data))
+        sim_to_neg      = remain_emb_norm @ labeled_neg_emb.T          # [N_remain, N_neg_labeled]
+        max_sim_to_neg  = sim_to_neg.max(axis=1)       
+
+        scored = sorted(zip(max_sim_to_neg.tolist(), remain_pos_idx), reverse=True)
+        return [i for _, i in scored[:n_fp]]
+
+    def _select_fn(self, unlabeled_data, neg_idx_all, n_fn):
+        labeled_pos_emb = self._labeled_embeddings[self._labeled_has_entity]
+        if not neg_idx_all or labeled_pos_emb.shape[0] == 0:
+            return neg_idx_all[:n_fn]
+        
+        neg_data     = [unlabeled_data[i] for i in neg_idx_all]
+        neg_emb_norm = self._normalize(self.sentence_embedding(neg_data))
+        sim_to_pos     = neg_emb_norm @ labeled_pos_emb.T        # [N_neg, N_pos_labeled]
+        max_sim_to_pos  = sim_to_pos.max(axis=1)       
+
+        scored = sorted(zip(max_sim_to_pos.tolist(),neg_idx_all), reverse=True)
+        return [i for _, i in scored[:n_fn]]
 
     # Méthodes de sélection principales
     def kmeans_semantique(self, data, idx, n_select, n_clusters, k_nn, random_state):
@@ -332,25 +472,4 @@ class ALStrategies:
     def _has_entity(example: dict) -> bool :
         return any(lab in ("B-SRC", "I-SRC", "B", "I") for lab in example.get("labels", []))
     
-    @ staticmethod
-    def long_entity_score(pred_labels: list) -> float:
-        """
-        Score basé sur la longueur de la plus longue entité prédite.
-        Retourne un score entre [0,1].
-        """
-        if not pred_labels :
-            return 0.0
-        max_len = 0
-        current_len = 0
-
-        for lab in pred_labels :
-            if lab == "B-SRC":
-                current_len = 1
-            elif lab == "I-SRC":
-                current_len += 1
-            else : 
-                max_len = max(max_len, current_len)
-                current_len = 0 
-        # si entité couvre jusqu'à la fin de la phrase 
-        return float(max(max_len, current_len)) 
             

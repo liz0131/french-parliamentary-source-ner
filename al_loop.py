@@ -1,14 +1,14 @@
 import os
 import json
-import random
 import shutil
+from datetime import datetime 
 from typing import List
 from camembert_model import CamembertNER
 from al_strategies import ALStrategies
-# from uncertainty import UncertaintySampler
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+# ------ Utils ------
 def read_jsonl(path):
     data = []
     with open(path, encoding="utf-8") as f:
@@ -23,10 +23,18 @@ def write_jsonl(path, data):
         for obj in data:
             f.write(json.dumps(obj, ensure_ascii=False) + "\n")
 
-def make_id_set(items): # correction : référence uid -> id
+def read_json(path):
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+    
+def write_json(path, data):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def make_id_set(items): 
     return set([x.get("id") for x in items if x.get("id") is not None])
 
-def remove_selected_from_pool(pool, selected_id_set): # correction : référence uid -> id
+def remove_selected_from_pool(pool, selected_id_set): 
     return [x for x in pool if x.get("id") not in selected_id_set]
 
 def visual_token_label(tokens: List[str], labels:List[str]) -> str:
@@ -41,7 +49,7 @@ def add_span(labels:List[str], start:int, end: int) -> List[str]: # ent: str
     if start < 0 or end >= len(labels) or start > end:
         raise ValueError("Span invalide.")
     lab = labels[:]
-    lab[start] = "B-SRC"    # lab[start] = f"B-{ent}"
+    lab[start] = "B-SRC"    
     for i in range(start+1, end+1):
         lab[i] = "I-SRC"
     return lab
@@ -55,7 +63,8 @@ def clear_span(labels: List[str], start: int, end: int) -> List[str]:
         lab[i] = "O"
     return lab 
 
-def get_best_model(ner, current_f1, best_f1, model_dir, best_model_dir, iteration) : 
+# ------ Gestion du meilleur modèle ------
+def get_best_model(current_f1, best_f1, model_dir, best_model_dir, iteration) : 
     print(f"F1 actuel (iter {iteration}): {current_f1:.4f}")
     print(f"Meilleur F1 précédent: {best_f1:.4f}")
 
@@ -86,286 +95,304 @@ def load_best_f1(best_model_dir):
             return metadata.get("best_f1", 0.0)
     return 0.0
 
-def get_menu():
-    print("\nCommandes :")
-    print(" Entrée : valider la phrase avec ses annotations ")
-    print(" 0     : supprimer span pour une entité annotée, ex: 3 6(start end)")
-    print(" 1      : ajouter span pour modifier une entité, ex : 3 6")
-    print(" r      : revenir à la phrase précédente")
-    print(" d      : revoir la page de définitions")
-    print(" s      : sauvegarder tous les annotations\n")
-    print(" Labels attendus : O, B-SRC, I-SRC")
-    print(" Indice : 0 based\n")
+# ------ Gestion AL état ------
+def load_al_state(state_path):
+    if os.path.exists(state_path):
+        state = read_json(state_path)
+        print(f"État AL chargé : iter={state['iteration']}, phase={state['phase']}, best_f1={state['best_f1']:.4f}")
+        return state
+    return {
+        "iteration": 0,
+        "phase": "ready",
+        "selected_ids": [],
+        "best_f1": 0.0,
+        "strategy": "kmeans_fp_fn",
+        "timestamp": None,
+    }
 
-def get_annotations(to_annotate_path: str, annotated_path:str) -> None : 
-    items = read_jsonl(to_annotate_path)
-    if not items : 
-        print(f"Aucun élément à annoter dans {to_annotate_path}")
-        return
-    
-    labeled = read_jsonl(annotated_path)
-    done = {x.get("id"): x for x in labeled if x.get("id") is not None}  
+def save_al_state(state_path, state):
+    state["timestamp"]=datetime.now().isoformat()
+    write_json(state_path, state)
+    print(f"Etat AL sauvegardé : iter={state['iteration']} phase={state['phase']}")
 
-    output = labeled[:]
+# ------ Export to_annotate.json ------
+def build_to_annotate(ner, pool, positive_idx, negative_idx, km_idx_set,  fp_idx_set, fn_idx_set, entropy_idx_set, pred_labels_all, entropy_scores) :
+    to_annotate = []
+    n = len(pool)
+    for idx in list(positive_idx) + list(negative_idx):
+        if idx >= n:
+            raise ValueError(f"idx={idx} hors limites, pool size={n}. "
+                             f"Assure-toi que pool.json n'a pas été modifié "
+                             f"entre run_selection et build_to_annotate.")
 
-    print(f"\nLoaded {len(items)} phrases. {len(done)} sont déjà annotées.\n")
-    get_menu()
+    for idx in positive_idx:
+        item = pool[idx]
+        tokens = item.get("tokens") or ner.simple_tokenize(item.get("text",""))
+        pred_labels = pred_labels_all[idx]
+        uncertainty = entropy_scores[idx]
 
-    i = 0 
-    while i < len(items):
-        item = items[i]
-        item_id = item.get("id")
-        uid = item.get("uid")
-        tokens = item.get("tokens") or []
-        pred = item.get("pred_labels") or ["O"]*len(tokens)
-        text = item.get("text", "")
+        if idx in km_idx_set:
+            mode = "kmeans"
+        elif idx in fp_idx_set:
+            mode = "fp"
+        elif idx in fn_idx_set:
+            mode = "fn"
+        elif idx in entropy_idx_set:
+            mode = "entropy"
+        else:
+            mode = "random"
+            
+        to_annotate.append({
+            "uid": item.get("uid"),
+            "id": item.get("id"),
+            "text": item.get("text"),
+            "tokens": tokens,
+            "pred_labels": pred_labels,
+            "uncertainty": uncertainty,
+            "mode": mode
+        })
 
-        current = (done.get(item_id, {}).get("labels")or pred)[:]   # copie de la liste
-        print (f"\n[{i+1}/{len(items)}]  uid={uid}  id={item_id}  uncertainty={item.get('uncertainty')}  mode={item.get('mode')}")  # Doublon uid !!
-        if text:
-            print(text)
-        print("\nTokens, Labels")
-        print(visual_token_label(tokens, current))
+    for idx in negative_idx:
+        item = pool[idx]
+        tokens = item.get("tokens") or ner.simple_tokenize(item.get("text", ""))
+        pred_labels = pred_labels_all[idx]
+        uncertainty = entropy_scores[idx]
+        mode = "fn" if idx in fn_idx_set else "km_negative"
 
-        cmd = input("\n> ").strip()
+        to_annotate.append({
+            "uid": item.get("uid"),
+            "id": item.get("id"),
+            "text": item.get("text"),
+            "tokens": tokens,
+            "pred_labels": pred_labels,
+            "uncertainty": uncertainty,
+            "mode": mode
+        })
 
-        # Entrée : valider
-        if cmd=="":
-            record = {"uid":uid, "id": item_id, "tokens": tokens, "labels":current}
-            output = [r for r in output if r.get("id")!=item_id] 
-            output.append(record)
-            done[item_id] = record 
-            i+=1
-            continue
-        
-        # r : revenir
-        if cmd =="r":
-            i = max(0, i-1)
-            continue 
-        
-        # d : help menu
-        if cmd.lower() == "d":
-            get_menu()
-            continue 
+    return to_annotate
 
-        # s : sauvegarde 
-        if cmd.lower()=="s":
-            saved = list(done.values())
-            saved.sort(key=lambda x: str(x.get("uid")))
-            write_jsonl(annotated_path, saved)
-            print(f"\n {len(saved)} phrases annotées sont sauvegardées à {annotated_path}")
-            return 
-        
-        # 1 : modifier src 
-        if cmd == "1":
-            line = input("Modifiez le span entre (start end)>").strip()
-            try: 
-                s,e = line.split()
-                start, end = int(s), int(e)
-                current = add_span(current, start, end)
-                done[item_id] = {"uid": uid, "id": item_id, "tokens": tokens, "labels": current}
-                print("Span ajouté. Validez avec Entrée.")
-            except Exception as ex : 
-                print(f"Erreur:{ex}")
-            continue 
-        
-        # 0 : supprimer src 
-        if cmd =="0":
-            line = input("Delete l'étiquette entre (start end) > ").strip()
-            try:
-                s, e = line.split()
-                start, end = int(s), int(e)
-                current = clear_span(current, start, end)
-                done[item_id]={"uid":uid, "id":item_id, "tokens": tokens, "labels":current}
-                print("L'étiquette supprimée. Validez avec Entrée.")
-            except Exception as ex :
-                print(f"Erreur: {ex}")
-            continue 
-
-        print("Commande inconnue. Tapez 'd' pour avoir les définitions en détails.")
-
-    # Sauvegarde automatique 
-    saved = list(done.values())
-    saved.sort(key=lambda x: str(x.get("uid")))
-    write_jsonl(annotated_path, saved)
-    print(f"\n Merci pour l'annotation. Résultats enregistrés à {annotated_path}")
-
-def main(config: dict):
-    cfg = config 
-    MODEL_DIR      = cfg["MODEL_DIR"]
+def run_selection(config:dict):
+    cfg            = config
+    CURRENT_MODEL_DIR = cfg["CURRENT_MODEL_DIR"]
     BEST_MODEL_DIR = cfg["BEST_MODEL_DIR"]
     LABELED        = cfg["LABELED"]
     VAL            = cfg["VAL"]
     POOL           = cfg["POOL"]
     TO_ANNOTATE    = cfg["TO_ANNOTATE"]
-    ANNOTATED      = cfg["ANNOTATED"]
-    AL_STRATEGY    = cfg["AL_STRATEGY"]
-    AL_ITERS       = cfg["AL_ITERS"]
-    K_POSITIVE     = cfg["K_POSITIVE"]
-    K_NEGATIVE     = cfg["K_NEGATIVE"]
-    N_PREFILTER    = cfg.get("N_PREFILTER", 2000)
-    KMEANS_RATIO   = cfg.get("KMEANS_RATIO", 0.6)
+    AL_STATE       = cfg.get("AL_STATE", "./dataset/al_state.json")
+
+    N_SELECT      = cfg.get("N_SELECT", 150)
+    POS_RATIO     = cfg.get("POS_RATIO", 0.80)
+    K_POSITIVE    = int(N_SELECT * POS_RATIO)
+    K_NEGATIVE    = N_SELECT - K_POSITIVE
+    N_PREFILTER   = cfg.get("N_PREFILTER", 1000)
+    KMEANS_RATIO  = cfg.get("KMEANS_RATIO", 0.75)
+    STRATEGY      = cfg.get("AL_STRATEGY", "kmeans_semantic")
+    SAMPLER_K     = cfg.get("SAMPLER_K", 10)
+    SAMPLER_BATCH = cfg.get("SAMPLER_BATCH", 16)
+
+    print(f"N_SELECT={N_SELECT} | stratégie={STRATEGY} | POS_RATIO={POS_RATIO} -> K_POSITIVE={K_POSITIVE}, K_NEGATIVE={K_NEGATIVE}")
+
+    state = load_al_state(AL_STATE)
+
+    if state["phase"]=="to_annotate":
+        print(f"En attende d'annotation. Lance run_retrain() après avoir rempli {cfg['ANNOTATED']}")
+        return
+    
+    iteration = state["iteration"]
+    print(f"\n==== PHASE A : SELECTION | itération {iteration+1} ====")
 
     ner = CamembertNER(max_length=cfg["MAX_LENGTH"])
-
     labeled = read_jsonl(LABELED)
     val = read_jsonl(VAL)
     pool = read_jsonl(POOL)
 
-    # labels typed
     labeled = ner.convert_to_typed_iob(labeled)
     val = ner.convert_to_typed_iob(val)
 
-    # Charger le meilleur F1 connu
-    best_f1 = load_best_f1(BEST_MODEL_DIR)
-    # best_f1_micro = best_f1
-    print(f"Meilleur F1 micro : {best_f1: 4f}")
+    print(f"Labeled size: {len(labeled)} | Pool size: {len(pool)}")
 
-    # Vérifier si un modèle existe pour warm start
-    saved_model = (
-        os.path.isdir(MODEL_DIR)
-        and os.path.isfile(os.path.join(MODEL_DIR, "config.json"))
+    if (os.path.isdir(CURRENT_MODEL_DIR) and os.path.isfile(os.path.join(CURRENT_MODEL_DIR, "config.json"))):
+        selection_model_dir = CURRENT_MODEL_DIR
+        print(f"Modèle chargé depuis {selection_model_dir}")
+    elif (os.path.isdir(BEST_MODEL_DIR) and os.path.isfile(os.path.join(BEST_MODEL_DIR, "config.json"))):
+        selection_model_dir = BEST_MODEL_DIR
+        print(f"Modèle chargé depuis {selection_model_dir}")
+    else : 
+        print(f"Aucun modèle disponible")
+        return
+
+    ner.load(selection_model_dir)
+    current_f1 = ner.evaluate_data(val, batch_size=cfg.get("BATCH_SIZE", 8))
+    print(f"F1 modèle actuel : {current_f1:.4f}")
+
+    # Sélection AL
+    sampler = ALStrategies(ner, k=SAMPLER_K, batch_size=SAMPLER_BATCH)
+    sampler.labeled_cache(labeled)
+
+    print(f"Stratégie AL : {STRATEGY}")
+    result = sampler.run(
+        unlabeled_data=pool,
+        strategy=STRATEGY,
+        n_positive=K_POSITIVE,
+        n_negative=K_NEGATIVE,
+        n_prefilter=N_PREFILTER,
+        kmeans_ratio=KMEANS_RATIO,
+        fn_ratio=cfg.get("FN_RATIO", 0.0),
+        method="entropy"
+    )        
+
+    positive_idx = result["positive_idx"]
+    negative_idx = result["negative_idx"]
+    km_idx_set = set(result["km_idx"])
+    fp_idx_set = set(result["fp_idx"])
+    fn_idx_set = set(result["fn_idx"])
+    entropy_idx_set = set(result["entropy_idx"])
+    pred_labels_all = result["pred_labels_all"]
+    entropy_scores = result["entropy_scores"]
+
+    print(f"Pool size au moment de la sélection : {len(pool)}")
+    print(f"Max idx positif : {max(positive_idx) if positive_idx else 'N/A'}")
+    print(f"Max idx négatif : {max(negative_idx) if negative_idx else 'N/A'}")
+
+    # Export to_annotate.json
+    to_annotate = build_to_annotate(
+        ner, pool, positive_idx, negative_idx, 
+        km_idx_set, fp_idx_set, fn_idx_set, 
+        entropy_idx_set, pred_labels_all, entropy_scores,
     )
 
-    for it in range(AL_ITERS):
-        print(f"\n===== AL ITERATION {it+1}/{AL_ITERS} =====")
-        print(f"Labeled size: {len(labeled)} | Pool size: {len(pool)}")
+    write_jsonl(TO_ANNOTATE, to_annotate)
+    selected_ids = [x["id"] for x in to_annotate if x.get("id")]
 
-        # 1) warm start / entraînement
-        if it == 0 :
-            if saved_model:
-                print(f"Warm start: loading existing model from {MODEL_DIR}")
-                ner.load(MODEL_DIR)
-                # évaluer le mode1le de warm start
-                current_f1 = ner.evaluate_data(val, batch_size=8)
-                print(f"F1-score du modèle warm start: {current_f1:.4f}")
-                best_f1 = get_best_model(ner, current_f1, best_f1, MODEL_DIR, BEST_MODEL_DIR, it+1)
+    print(f"\n{len(to_annotate)} exemples exportes vers {TO_ANNOTATE}")
+    print(f"positifs={len(positive_idx)} | negatifs={len(negative_idx)}")
+    print(f"En attente d'annotation externe...")
+    print(f"Place les annotations dans {cfg['ANNOTATED']}")
+    print(f"Lance ensuite run_retrain()")
 
-            else:
-                print(f"Entraînement du modèle (itération {it+1})...")
-                current_f1 = ner.train(
-                    train_data=labeled,
-                    val_data=val,
-                    model_dir=MODEL_DIR,
-                    epochs=15,
-                    batch_size=8,
-                    lr=1e-5,
-                    patience =5
-                )
-                print(f"Le meilleure F1 micro: {current_f1:.4f}")
-                # Comparer et sauvegarder si meilleur 
-                best_f1 = get_best_model(ner, current_f1, best_f1, MODEL_DIR, BEST_MODEL_DIR, it+1)
-        
-        else : 
-            ner.load(BEST_MODEL_DIR)
+    # Sauvegarder etat AL
+    state.update({
+        "iteration": iteration,
+        "phase": "to_annotate",
+        "selected_ids": selected_ids,
+        "strategy": STRATEGY,
+    })
+    save_al_state(AL_STATE, state)
 
-        # 2) Initialisation du sampler
-        # sampler = UncertaintySampler(ner, k=10, batch_size=16, alpha=0.5, beta=0.5) 
-        sampler = ALStrategies(ner, k=10, batch_size=16)
-        sampler.labeled_cache(labeled)  # labeled embedding cache
+def run_retrain(config: dict):
+    cfg            = config
+    MODEL_DIR      = cfg["MODEL_DIR"]
+    CURRENT_MODEL_DIR = cfg["CURRENT_MODEL_DIR"]
+    BEST_MODEL_DIR = cfg["BEST_MODEL_DIR"]
+    LABELED        = cfg["LABELED"]
+    VAL            = cfg["VAL"]
+    POOL           = cfg["POOL"]
+    ANNOTATED      = cfg["ANNOTATED"]
+    AL_STATE       = cfg.get("AL_STATE", "./dataset/al_state.json")
+    START_MODE     = cfg.get("START_MODE", "cold")
 
-        # 3) Stratégie combiné et score
-            # scores_dict = sampler.get_score(pool, strategy=AL_STRATEGY, method="entropy", agg="max", n_clusters=K_UNCERTAIN)
-            # combined = scores_dict["Combined score"]
-        result = sampler.run(
-            unlabeled_data=pool,
-            strategy=AL_STRATEGY,
-            n_positive=K_POSITIVE,
-            n_negative=K_NEGATIVE,
-            n_prefilter=N_PREFILTER,
-            kmeans_ratio=KMEANS_RATIO, 
-            method="entropy"
-        )
+    EPOCHS     = cfg.get("EPOCHS", 15)
+    BATCH_SIZE = cfg.get("BATCH_SIZE", 8)
+    LR         = cfg.get("LR", 1e-5)
+    PATIENCE   = cfg.get("PATIENCE", 3)
 
-        positive_idx = result["positive_idx"]
-        negative_idx = result["negative_idx"]
-        km_idx_set = set(result["km_idx"])
-        extra_idx_set = set(result["extra_idx"])
+    # Charger etat AL
+    state = load_al_state(AL_STATE)
 
-        # 4) Export to_annotate.json
-        to_annotate = []
+    if state["phase"] != "to_annotate":
+        print("Aucune annotation en attente. Lance d'abord run_selection().")
+        return
 
-        for idx in positive_idx:
-            item = pool[idx]
-            tokens = item.get("tokens") or ner.simple_tokenize(item.get("text",""))
-            _, pred_labels, uncertainty, _ = sampler.uncertainty_sampling(tokens=tokens, method="entropy", agg="max")
-            
-            if idx in km_idx_set:
-                mode = "kmeans"
-            elif idx in extra_idx_set:
-                mode = result["strategy"]  # "long_entity" ou "fp_score"
-            else:
-                mode = "uncertain"
-            
-            to_annotate.append({
-                "uid": item.get("uid"),
-                "id": item.get("id"),
-                "text": item.get("text"),
-                "tokens": tokens,
-                "pred_labels": pred_labels,
-                "uncertainty": uncertainty,
-                "long_score": ALStrategies.long_entity_score(pred_labels),
-                "mode": mode
-            })
+    iteration = state["iteration"]
+    selected_ids = set(state["selected_ids"])
+    best_f1 = state["best_f1"]
 
-        for idx in negative_idx:
-            item = pool[idx]
-            tokens = item.get("tokens") or ner.simple_tokenize(item.get("text",""))
-            _, pred_labels, uncertainty, _ = sampler.uncertainty_sampling(tokens=tokens, method="entropy", agg="max")
-            to_annotate.append({
-                "uid": item.get("uid"),
-                "id": item.get("id"),
-                "text": item.get("text"),
-                "tokens": tokens,
-                "pred_labels": pred_labels,
-                "uncertainty": uncertainty,
-                "long_score": 0.0,
-                "mode": "km_negative"
-            })
+    print(f"\n===== PHASE B - RETRAIN (iteration {iteration + 1}) =====")
 
-        write_jsonl(TO_ANNOTATE, to_annotate)
-        print(f"Saved {len(to_annotate)} items to annotate -> {TO_ANNOTATE}")
-        print(f"positive={len(km_idx_set)+len(extra_idx_set)}"
-              f"negative={len(negative_idx)}")
-        # 5) Annotation humaine
-        get_annotations(TO_ANNOTATE, ANNOTATED)
+    # Verifier annotated.json 
+    if not os.path.isfile(ANNOTATED):
+        print(f"Fichier {ANNOTATED} introuvable.")
+        return
+    
+    # Charger donnees
+    ner = CamembertNER(max_length=cfg["MAX_LENGTH"])
+    labeled = read_jsonl(LABELED)
+    val = read_jsonl(VAL)
+    pool = read_jsonl(POOL)
 
-        # 6) Import des annotations gold
-        new_items = read_jsonl(ANNOTATED)
-        new_items = ner.convert_to_typed_iob(new_items)
+    labeled = ner.convert_to_typed_iob(labeled)
+    val = ner.convert_to_typed_iob(val)
 
-        # 7) Mise à jour du labeled set
-        labeled_id = make_id_set(labeled)
-        added = 0
-        for ex in new_items:
-            if ex.get("id") not in labeled_id:
-                labeled.append(ex)
-                added += 1
-        print(f"Added {added} new labeled examples.")
+    # Import annotations gold
+    new_items = read_jsonl(ANNOTATED)
+    new_items = ner.convert_to_typed_iob(new_items)
 
-        # 8) Mise à jour du pool
-        selected_ids = set([x.get("id") for x in to_annotate if x.get("id") is not None])
-        pool = remove_selected_from_pool(pool, selected_ids)
-        print(f"Pool updated. Remaining: {len(pool)}")
+    # Verification
+    annotated_ids = make_id_set(new_items)
+    missing = selected_ids - annotated_ids
+    if missing:
+        print(f"{len(missing)} exemples selectionnés non annotés.")
+        print(f"IDs manquants : {list(missing)[:5]}{'...' if len(missing) > 5 else ''}")
 
-        # 9) Sauvegarde du datasets mis-à-jour
-        write_jsonl(LABELED, labeled)
-        write_jsonl(POOL, pool)
-        print("Saved updated labeled.jsonl and pool.jsonl")
+    # Mise a jour labeled
+    labeled_id_set = make_id_set(labeled)
+    added = 0
+    for ex in new_items:
+        if ex.get("id") not in labeled_id_set:
+            labeled.append(ex)
+            added += 1
+    print(f"Ajout de {added} nouveaux exemples. Labeled size : {len(labeled)}")
 
-        # 10) Retrain après annotation
-        print(f"Entraînement du modèle (itération {it+1})...")
-        retrain_f1 = ner.train(
-            train_data=labeled,
-            val_data=val,
-            model_dir=MODEL_DIR,
-            epochs=15,
-            batch_size=8,
-            lr=1e-5,
-            patience = 5
-        )
-        print(f"Le meilleure F1 micro: {retrain_f1:.4f}")
-        best_f1 = get_best_model(ner, retrain_f1, best_f1, MODEL_DIR, BEST_MODEL_DIR, it+1)
+    # Mise a jour pool
+    pool = remove_selected_from_pool(pool, selected_ids)
+    print(f"Pool mis a jour. Restant : {len(pool)}")
 
-    print(f"Meilleur F1 global atteint: {best_f1:.4f}")
-    print(f"Meilleur modèle sauvegardé dans: {BEST_MODEL_DIR}")
+    # Sauvegarde datasets
+    write_jsonl(LABELED, labeled)
+    write_jsonl(POOL, pool)
+    print("Labeled + pool sauvegardés.")
+
+    # Cold start or Warm start retrain 
+    if START_MODE == "warm":
+        print(f"\nRetrain (warm start) depuis {BEST_MODEL_DIR}...")
+        ner.load(BEST_MODEL_DIR)
+    elif START_MODE == "cold":
+        print(f"\nRetrain (cold start) — réinitialisation depuis {ner.model_name}...")
+        ner.init_for_train()   # train() le ferait aussi si ner.model est None
+    else:
+        raise ValueError(f"START_MODE inconnu: {START_MODE!r} (attendu 'cold' ou 'warm')")
+
+    retrain_f1 = ner.train(
+        train_data=labeled,
+        val_data=val,
+        model_dir=MODEL_DIR,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        lr=LR,
+        patience=PATIENCE
+    )
+    if os.path.exists(CURRENT_MODEL_DIR):
+        shutil.rmtree(CURRENT_MODEL_DIR)
+
+    shutil.copytree(MODEL_DIR, CURRENT_MODEL_DIR)
+
+    print(f"Modèle AL actuel mis à jour depuis {MODEL_DIR} vers {CURRENT_MODEL_DIR}")
+    print(f"F1 apres retrain : {retrain_f1:.4f}")
+
+    best_f1 = get_best_model(
+        ner, retrain_f1, best_f1, MODEL_DIR, BEST_MODEL_DIR, iteration + 1
+    )
+
+    # Mettre à jour état AL
+    state.update({
+        "iteration": iteration + 1,
+        "phase": "ready",
+        "selected_ids": [],
+        "best_f1": best_f1,
+    })
+    save_al_state(AL_STATE, state)
+
+    print(f"\nIteration {iteration + 1} terminée.")
+    print(f"Meilleur F1 : {best_f1:.4f}")
+    print(f"Meilleur modèle : {BEST_MODEL_DIR}")
