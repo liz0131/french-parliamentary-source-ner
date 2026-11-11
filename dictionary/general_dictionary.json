@@ -1,0 +1,1815 @@
+{
+  "académiques": {
+    "canonical": "académiques",
+    "variants": [
+      "académiques"
+    ]
+  },
+  "accusation": {
+    "canonical": "accusation",
+    "variants": [
+      "accusation"
+    ]
+  },
+  "actuelles": {
+    "canonical": "actuelles",
+    "variants": [
+      "Actuelles",
+      "actuelles"
+    ]
+  },
+  "administration": {
+    "canonical": "administration",
+    "variants": [
+      "administration"
+    ]
+  },
+  "administration fiscale": {
+    "canonical": "administration fiscale",
+    "variants": [
+      "Administration fiscale",
+      "administration fiscale"
+    ]
+  },
+  "adultes": {
+    "canonical": "adulte",
+    "variants": [
+      "adultes"
+    ]
+  },
+  "agents": {
+    "canonical": "agents",
+    "variants": [
+      "agents"
+    ]
+  },
+  "aides-soignants": {
+    "canonical": "aides-soignants",
+    "variants": [
+      "aides-soignants"
+    ]
+  },
+  "alliance": {
+    "canonical": "Alliance",
+    "variants": [
+      "Alliance"
+    ]
+  },
+  "ambassade": {
+    "canonical": "ambassade",
+    "variants": [
+      "ambassade"
+    ]
+  },
+  "ambassades": {
+    "canonical": "ambassades",
+    "variants": [
+      "ambassades"
+    ]
+  },
+  "ambassadeur de france": {
+    "canonical": "ambassadeur de France",
+    "variants": [
+      "ambassadeur de France"
+    ]
+  },
+  "analystes": {
+    "canonical": "analystes",
+    "variants": [
+      "analystes"
+    ]
+  },
+  "anciens combattants": {
+    "canonical": "ancien combattant",
+    "variants": [
+      "anciens combattants"
+    ]
+  },
+  "artisans": {
+    "canonical": "artisans",
+    "variants": [
+      "artisans"
+    ]
+  },
+  "association": {
+    "canonical": "association",
+    "variants": [
+      "Association",
+      "association"
+    ]
+  },
+  "association étudiante": {
+    "canonical": "organisation étudiante",
+    "variants": [
+      "association étudiante"
+    ]
+  },
+  "associations caritatives": {
+    "canonical": "association caritative",
+    "variants": [
+      "associations caritatives",
+      "organisations caritatives",
+      "association caritative"
+    ]
+  },
+  "associations de consommateurs": {
+    "canonical": "association de consommateurs",
+    "variants": [
+      "associations de consommateurs",
+      "associations de consommateur",
+      "associations de défense des consommateurs",
+      "association de consommateurs"
+    ]
+  },
+  "associations intermédiaires": {
+    "canonical": "association intermédiaire",
+    "variants": [
+      "associations intermédiaires"
+    ]
+  },
+  "assureur": {
+    "canonical": "compagnie d'assurances",
+    "variants": [
+      "sociétés d'assurance",
+      "assureur",
+      "compagnies d'assurances",
+      "compagnie d'assurances"
+    ]
+  },
+  "auteur": {
+    "canonical": "écrivain ou écrivaine",
+    "variants": [
+      "auteur"
+    ]
+  },
+  "avocat": {
+    "canonical": "avocat ou avocate",
+    "variants": [
+      "avocate",
+      "avocat",
+      "avocat ou avocate"
+    ]
+  },
+  "avocat général": {
+    "canonical": "avocat général",
+    "variants": [
+      "avocat général"
+    ]
+  },
+  "banques": {
+    "canonical": "banque",
+    "variants": [
+      "banques"
+    ]
+  },
+  "baromètre": {
+    "canonical": "baromètre",
+    "variants": [
+      "Baromètre",
+      "baromètre"
+    ]
+  },
+  "bureaux d'études": {
+    "canonical": "bureau d'études",
+    "variants": [
+      "bureaux d'études"
+    ]
+  },
+  "caisses de retraite": {
+    "canonical": "caisses de retraite",
+    "variants": [
+      "caisses de retraite"
+    ]
+  },
+  "centenaire": {
+    "canonical": "centenaire",
+    "variants": [
+      "Centenaire",
+      "centenaire"
+    ]
+  },
+  "centre": {
+    "canonical": "centre",
+    "variants": [
+      "centre"
+    ]
+  },
+  "chambres consulaires": {
+    "canonical": "chambre consulaire",
+    "variants": [
+      "chambre consulaire",
+      "chambres consulaires"
+    ]
+  },
+  "chancelière": {
+    "canonical": "chancelier",
+    "variants": [
+      "Chancelière",
+      "chancelière"
+    ]
+  },
+  "chasseurs": {
+    "canonical": "chasseur",
+    "variants": [
+      "chasseurs"
+    ]
+  },
+  "chaînes de télévision": {
+    "canonical": "chaîne de télévision",
+    "variants": [
+      "chaînes de télévision"
+    ]
+  },
+  "chef de l'état": {
+    "canonical": "chef d'État",
+    "variants": [
+      "Chef de l'État",
+      "chef de l'État"
+    ]
+  },
+  "citoyens": {
+    "canonical": "citoyen",
+    "variants": [
+      "citoyens"
+    ]
+  },
+  "clients": {
+    "canonical": "clients",
+    "variants": [
+      "clients"
+    ]
+  },
+  "collectif": {
+    "canonical": "collectif",
+    "variants": [
+      "Collectif",
+      "collectif"
+    ]
+  },
+  "comité": {
+    "canonical": "Comité",
+    "variants": [
+      "Comité",
+      "comité"
+    ]
+  },
+  "comité d'entreprise": {
+    "canonical": "comité d'entreprise",
+    "variants": [
+      "comité d'entreprise"
+    ]
+  },
+  "commerçants": {
+    "canonical": "commerçants et assimilés",
+    "variants": [
+      "commerçants"
+    ]
+  },
+  "commissaire européen": {
+    "canonical": "commissaire européen",
+    "variants": [
+      "Commissaire européen",
+      "commissaire européen"
+    ]
+  },
+  "commissaire-enquêteur": {
+    "canonical": "commissaire-enquêteur",
+    "variants": [
+      "commissaire-enquêteur"
+    ]
+  },
+  "commissaires aux comptes": {
+    "canonical": "commissaire aux comptes",
+    "variants": [
+      "commissaires aux comptes"
+    ]
+  },
+  "commission": {
+    "canonical": "Commission",
+    "variants": [
+      "Commission",
+      "commission"
+    ]
+  },
+  "commission interministérielle": {
+    "canonical": "commission interministérielle",
+    "variants": [
+      "commission interministérielle"
+    ]
+  },
+  "commission parlementaire": {
+    "canonical": "commission parlementaire",
+    "variants": [
+      "commission parlementaire"
+    ]
+  },
+  "communauté internationale": {
+    "canonical": "communauté internationale",
+    "variants": [
+      "communauté internationale"
+    ]
+  },
+  "communauté scientifique": {
+    "canonical": "communauté scientifique",
+    "variants": [
+      "communauté scientifique"
+    ]
+  },
+  "communauté sourde": {
+    "canonical": "communauté sourde",
+    "variants": [
+      "communauté sourde"
+    ]
+  },
+  "communauté éducative": {
+    "canonical": "école communautaire",
+    "variants": [
+      "communauté éducative"
+    ]
+  },
+  "communiqué de presse": {
+    "canonical": "communiqué de presse",
+    "variants": [
+      "communiqué de presse"
+    ]
+  },
+  "compagnies pétrolières": {
+    "canonical": "compagnie pétrolière nationale",
+    "variants": [
+      "compagnies pétrolières"
+    ]
+  },
+  "concertation": {
+    "canonical": "concertation",
+    "variants": [
+      "concertation"
+    ]
+  },
+  "confédération": {
+    "canonical": "confédération",
+    "variants": [
+      "Ligue",
+      "confédération",
+      "Confédération",
+      "ligue"
+    ]
+  },
+  "conférence": {
+    "canonical": "conférence",
+    "variants": [
+      "conférence"
+    ]
+  },
+  "conférence de consensus": {
+    "canonical": "conférences de citoyens",
+    "variants": [
+      "conférence de consensus"
+    ]
+  },
+  "congrès": {
+    "canonical": "Congrès",
+    "variants": [
+      "Congrès",
+      "congrès"
+    ]
+  },
+  "conseil d'administration": {
+    "canonical": "conseil d'administration",
+    "variants": [
+      "conseil d'administration"
+    ]
+  },
+  "conseil départemental": {
+    "canonical": "conseil départemental",
+    "variants": [
+      "conseil départemental"
+    ]
+  },
+  "conseil général": {
+    "canonical": "conseil général",
+    "variants": [
+      "conseil général"
+    ]
+  },
+  "conseil régional": {
+    "canonical": "conseil régional",
+    "variants": [
+      "conseil régional"
+    ]
+  },
+  "consensus scientifique": {
+    "canonical": "consensus scientifique",
+    "variants": [
+      "consensus scientifique"
+    ]
+  },
+  "contrôleur": {
+    "canonical": "Contrôleur",
+    "variants": [
+      "Contrôleur",
+      "contrôleur"
+    ]
+  },
+  "coordination": {
+    "canonical": "coordination",
+    "variants": [
+      "Coordination",
+      "coordination"
+    ]
+  },
+  "corps médical": {
+    "canonical": "corps médical",
+    "variants": [
+      "corps médical"
+    ]
+  },
+  "courriers": {
+    "canonical": "correspondance",
+    "variants": [
+      "courriers"
+    ]
+  },
+  "directeur": {
+    "canonical": "directeur ou directrice",
+    "variants": [
+      "directeur"
+    ]
+  },
+  "direction": {
+    "canonical": "direction",
+    "variants": [
+      "Direction",
+      "direction"
+    ]
+  },
+  "données publiques": {
+    "canonical": "donnée publique",
+    "variants": [
+      "données publiques"
+    ]
+  },
+  "défenseur": {
+    "canonical": "Défenseur",
+    "variants": [
+      "Défenseur",
+      "défenseur"
+    ]
+  },
+  "délégation": {
+    "canonical": "délégation",
+    "variants": [
+      "Délégation",
+      "délégation"
+    ]
+  },
+  "délégation syndicale": {
+    "canonical": "délégation syndicale",
+    "variants": [
+      "délégation syndicale"
+    ]
+  },
+  "délégués": {
+    "canonical": "grands électeurs français",
+    "variants": [
+      "délégués"
+    ]
+  },
+  "départements": {
+    "canonical": "département",
+    "variants": [
+      "départements"
+    ]
+  },
+  "député": {
+    "canonical": "député français",
+    "variants": [
+      "Député",
+      "député",
+      "député français",
+      "Députée",
+      "députée"
+    ]
+  },
+  "députés": {
+    "canonical": "député européen",
+    "variants": [
+      "députés",
+      "eurodéputés",
+      "député européen"
+    ]
+  },
+  "enquête d'opinion": {
+    "canonical": "enquête d'opinion",
+    "variants": [
+      "enquête d'opinion"
+    ]
+  },
+  "entrepreneurs": {
+    "canonical": "entrepreneur ou entrepreneuse",
+    "variants": [
+      "entrepreneurs"
+    ]
+  },
+  "entreprise": {
+    "canonical": "entreprise",
+    "variants": [
+      "entreprise"
+    ]
+  },
+  "envoyé spécial": {
+    "canonical": "reporter",
+    "variants": [
+      "\"Envoyé spécial\"",
+      "\"envoyé spécial\"",
+      "Envoyé spécial",
+      "reporter",
+      "envoyé spécial"
+    ]
+  },
+  "famille": {
+    "canonical": "famille",
+    "variants": [
+      "famille"
+    ]
+  },
+  "femmes": {
+    "canonical": "femme",
+    "variants": [
+      "femmes"
+    ]
+  },
+  "fondations": {
+    "canonical": "fondation",
+    "variants": [
+      "fondations"
+    ]
+  },
+  "français": {
+    "canonical": "français",
+    "variants": [
+      "Français",
+      "français",
+      "Françaises",
+      "françaises"
+    ]
+  },
+  "fédération": {
+    "canonical": "organisation faîtière",
+    "variants": [
+      "Fédération",
+      "fédération"
+    ]
+  },
+  "groupe": {
+    "canonical": "Groupe",
+    "variants": [
+      "Groupe",
+      "groupe"
+    ]
+  },
+  "groupe d'experts": {
+    "canonical": "groupe d'experts",
+    "variants": [
+      "groupe d'experts"
+    ]
+  },
+  "groupe de travail": {
+    "canonical": "groupe de travail",
+    "variants": [
+      "Groupe de travail",
+      "groupe de travail"
+    ]
+  },
+  "habitants": {
+    "canonical": "habitants",
+    "variants": [
+      "habitants"
+    ]
+  },
+  "hebdomadaire": {
+    "canonical": "magazine hebdomadaire",
+    "variants": [
+      "hebdomadaire"
+    ]
+  },
+  "huissiers": {
+    "canonical": "huissier de justice",
+    "variants": [
+      "huissiers"
+    ]
+  },
+  "hôpital": {
+    "canonical": "hôpital",
+    "variants": [
+      "hôpital"
+    ]
+  },
+  "iade": {
+    "canonical": "infirmier anesthésiste",
+    "variants": [
+      "IADE"
+    ]
+  },
+  "imam": {
+    "canonical": "imam",
+    "variants": [
+      "imam"
+    ]
+  },
+  "infirmières": {
+    "canonical": "infirmières",
+    "variants": [
+      "infirmières"
+    ]
+  },
+  "inflation": {
+    "canonical": "inflation",
+    "variants": [
+      "inflation"
+    ]
+  },
+  "inspection": {
+    "canonical": "inspection",
+    "variants": [
+      "Inspection",
+      "inspection"
+    ]
+  },
+  "instance": {
+    "canonical": "instance",
+    "variants": [
+      "instance"
+    ]
+  },
+  "instances": {
+    "canonical": "institution de l'Union européenne",
+    "variants": [
+      "instances européennes",
+      "instances",
+      "institution de l'Union européenne"
+    ]
+  },
+  "institut de sondage": {
+    "canonical": "institut de sondage",
+    "variants": [
+      "institut de sondage"
+    ]
+  },
+  "institution": {
+    "canonical": "institution sociale",
+    "variants": [
+      "Institution",
+      "institution"
+    ]
+  },
+  "institutions internationales": {
+    "canonical": "institution internationale",
+    "variants": [
+      "institutions internationales"
+    ]
+  },
+  "intercommunalités": {
+    "canonical": "intercommunalité",
+    "variants": [
+      "intercommunalités"
+    ]
+  },
+  "international": {
+    "canonical": "International",
+    "variants": [
+      "International",
+      "international"
+    ]
+  },
+  "interprofession": {
+    "canonical": "interprofession",
+    "variants": [
+      "interprofession"
+    ]
+  },
+  "intersyndicale": {
+    "canonical": "intersyndicale",
+    "variants": [
+      "Intersyndicale",
+      "intersyndicale"
+    ]
+  },
+  "investigation": {
+    "canonical": "journalisme d'enquête",
+    "variants": [
+      "Investigation",
+      "investigation"
+    ]
+  },
+  "journal": {
+    "canonical": "journal intime",
+    "variants": [
+      "journal"
+    ]
+  },
+  "journal satirique": {
+    "canonical": "magazine satirique",
+    "variants": [
+      "journal satirique"
+    ]
+  },
+  "journaliste": {
+    "canonical": "journaliste",
+    "variants": [
+      "journaliste"
+    ]
+  },
+  "laboratoires pharmaceutiques": {
+    "canonical": "industrie pharmaceutique",
+    "variants": [
+      "laboratoires pharmaceutiques"
+    ]
+  },
+  "lettre de mission": {
+    "canonical": "lettre de mission",
+    "variants": [
+      "lettre de mission"
+    ]
+  },
+  "lettre ouverte": {
+    "canonical": "lettre ouverte",
+    "variants": [
+      "lettre ouverte"
+    ]
+  },
+  "littérature scientifique": {
+    "canonical": "littérature scientifique",
+    "variants": [
+      "littérature scientifique"
+    ]
+  },
+  "magazine": {
+    "canonical": "magazine",
+    "variants": [
+      "Magazine",
+      "magazine"
+    ]
+  },
+  "magistrats": {
+    "canonical": "magistrat ou magistrate",
+    "variants": [
+      "magistrats"
+    ]
+  },
+  "maire": {
+    "canonical": "maire",
+    "variants": [
+      "Maire",
+      "maire"
+    ]
+  },
+  "malades": {
+    "canonical": "malades",
+    "variants": [
+      "malades"
+    ]
+  },
+  "mensuel": {
+    "canonical": "magazine mensuel",
+    "variants": [
+      "mensuel"
+    ]
+  },
+  "ministériel": {
+    "canonical": "ministériel",
+    "variants": [
+      "ministériel"
+    ]
+  },
+  "mission": {
+    "canonical": "mission",
+    "variants": [
+      "Mission",
+      "mission"
+    ]
+  },
+  "municipalité": {
+    "canonical": "municipalité",
+    "variants": [
+      "municipalité"
+    ]
+  },
+  "médecin du travail": {
+    "canonical": "médecin du travail",
+    "variants": [
+      "médecin du travail"
+    ]
+  },
+  "médecine": {
+    "canonical": "médecine",
+    "variants": [
+      "médecine"
+    ]
+  },
+  "médecine du travail": {
+    "canonical": "médecine du travail",
+    "variants": [
+      "médecine du travail"
+    ]
+  },
+  "média": {
+    "canonical": "média",
+    "variants": [
+      "média"
+    ]
+  },
+  "médiateur": {
+    "canonical": "Médiateur",
+    "variants": [
+      "Médiateur",
+      "médiateur"
+    ]
+  },
+  "notaires": {
+    "canonical": "notaire",
+    "variants": [
+      "notaires"
+    ]
+  },
+  "noyades": {
+    "canonical": "noyade",
+    "variants": [
+      "Noyades"
+    ]
+  },
+  "observatoire": {
+    "canonical": "observatoire",
+    "variants": [
+      "Observatoire",
+      "observatoire"
+    ]
+  },
+  "opinion": {
+    "canonical": "Opinion",
+    "variants": [
+      "'Opinion",
+      "'opinion",
+      "Opinion",
+      "opinion"
+    ]
+  },
+  "opinion publique": {
+    "canonical": "opinion publique",
+    "variants": [
+      "opinion publique"
+    ]
+  },
+  "opposition": {
+    "canonical": "opposition",
+    "variants": [
+      "opposition"
+    ]
+  },
+  "opposition parlementaire": {
+    "canonical": "opposition parlementaire",
+    "variants": [
+      "opposition parlementaire"
+    ]
+  },
+  "opticiens": {
+    "canonical": "opticiens",
+    "variants": [
+      "opticiens"
+    ]
+  },
+  "opérateur ferroviaire": {
+    "canonical": "opérateur ferroviaire",
+    "variants": [
+      "opérateur ferroviaire"
+    ]
+  },
+  "opérateur historique": {
+    "canonical": "opérateur historique",
+    "variants": [
+      "opérateur historique"
+    ]
+  },
+  "ordres professionnels": {
+    "canonical": "ordre professionnel",
+    "variants": [
+      "ordres professionnels"
+    ]
+  },
+  "organisation": {
+    "canonical": "Organisation",
+    "variants": [
+      "Organisation",
+      "organisation"
+    ]
+  },
+  "organisation patronale": {
+    "canonical": "organisation patronale",
+    "variants": [
+      "organisation patronale"
+    ]
+  },
+  "organisation professionnelle": {
+    "canonical": "organisation professionnelle",
+    "variants": [
+      "organisation professionnelle"
+    ]
+  },
+  "organisations agricoles": {
+    "canonical": "organisations agricoles",
+    "variants": [
+      "organisations agricoles"
+    ]
+  },
+  "organisations internationales": {
+    "canonical": "organisation internationale",
+    "variants": [
+      "organisations internationales"
+    ]
+  },
+  "organisme": {
+    "canonical": "organisme",
+    "variants": [
+      "organisme"
+    ]
+  },
+  "parent d'élève": {
+    "canonical": "parent d'élève",
+    "variants": [
+      "parent d'élève"
+    ]
+  },
+  "parlementaire": {
+    "canonical": "parlementaire",
+    "variants": [
+      "parlementaire"
+    ]
+  },
+  "parlementaires": {
+    "canonical": "parlementaires",
+    "variants": [
+      "parlementaires"
+    ]
+  },
+  "parquet": {
+    "canonical": "parquet",
+    "variants": [
+      "parquet"
+    ]
+  },
+  "partenaires sociaux": {
+    "canonical": "partenaires sociaux",
+    "variants": [
+      "partenaires sociaux"
+    ]
+  },
+  "parties prenantes": {
+    "canonical": "partie prenante",
+    "variants": [
+      "parties prenantes"
+    ]
+  },
+  "policiers": {
+    "canonical": "policier ou policière",
+    "variants": [
+      "policiers"
+    ]
+  },
+  "population": {
+    "canonical": "population",
+    "variants": [
+      "population"
+    ]
+  },
+  "presse": {
+    "canonical": "médias de masse",
+    "variants": [
+      "journalistes",
+      "médiatique",
+      "presse",
+      "médias de masse"
+    ]
+  },
+  "presse internationale": {
+    "canonical": "presse de référence",
+    "variants": [
+      "presse internationale"
+    ]
+  },
+  "presse locale": {
+    "canonical": "journal local",
+    "variants": [
+      "presse locale"
+    ]
+  },
+  "presse médicale": {
+    "canonical": "presse médicale",
+    "variants": [
+      "Presse médicale",
+      "presse médicale"
+    ]
+  },
+  "presse quotidienne régionale": {
+    "canonical": "quotidien régional",
+    "variants": [
+      "presse quotidienne régionale",
+      "PQR"
+    ]
+  },
+  "presse économique": {
+    "canonical": "presse économique",
+    "variants": [
+      "presse économique"
+    ]
+  },
+  "procureur de la république": {
+    "canonical": "procureur de la République",
+    "variants": [
+      "procureur de la République"
+    ]
+  },
+  "professeur": {
+    "canonical": "enseignant ou enseignante",
+    "variants": [
+      "professeur"
+    ]
+  },
+  "professeurs": {
+    "canonical": "professeurs, professions scientifiques",
+    "variants": [
+      "Professeurs",
+      "professeurs"
+    ]
+  },
+  "profession": {
+    "canonical": "profession",
+    "variants": [
+      "profession"
+    ]
+  },
+  "profession agricole": {
+    "canonical": "profession agricole",
+    "variants": [
+      "profession agricole"
+    ]
+  },
+  "professionnels de l'enseignement": {
+    "canonical": "professionnels de l'enseignement",
+    "variants": [
+      "professionnels de l'enseignement"
+    ]
+  },
+  "préfecture": {
+    "canonical": "préfecture en France",
+    "variants": [
+      "préfecture",
+      "préfectures",
+      "préfecture en France"
+    ]
+  },
+  "préfecture maritime": {
+    "canonical": "préfet maritime",
+    "variants": [
+      "préfecture maritime"
+    ]
+  },
+  "préfet": {
+    "canonical": "Préfet",
+    "variants": [
+      "Préfet",
+      "préfet",
+      "préfet de Seine-Saint-Denis",
+      "préfet de l'Hérault",
+      "préfet de La Réunion"
+    ]
+  },
+  "préfet de région": {
+    "canonical": "préfet de région",
+    "variants": [
+      "Préfet de région",
+      "préfet de région"
+    ]
+  },
+  "prématurité": {
+    "canonical": "accouchement prématuré",
+    "variants": [
+      "Prématurité"
+    ]
+  },
+  "président": {
+    "canonical": "président ou présidente",
+    "variants": [
+      "Président",
+      "président"
+    ]
+  },
+  "publications scientifiques": {
+    "canonical": "revue scientifique",
+    "variants": [
+      "publications scientifiques",
+      "revue scientifique"
+    ]
+  },
+  "pétition": {
+    "canonical": "pétition",
+    "variants": [
+      "pétition"
+    ]
+  },
+  "pétition en ligne": {
+    "canonical": "pétition en ligne",
+    "variants": [
+      "pétition en ligne"
+    ]
+  },
+  "pêcheur": {
+    "canonical": "pêcheur ou pêcheuse",
+    "variants": [
+      "Pêcheur"
+    ]
+  },
+  "quotidien": {
+    "canonical": "quotidien",
+    "variants": [
+      "Quotidien",
+      "quotidien"
+    ]
+  },
+  "rapport annuel": {
+    "canonical": "rapport annuel",
+    "variants": [
+      "Rapport annuel-",
+      "rapport annuel-",
+      "rapport annuel"
+    ]
+  },
+  "rapport d'activité": {
+    "canonical": "rapport d'activité",
+    "variants": [
+      "rapport d'activité"
+    ]
+  },
+  "rapport d'audit": {
+    "canonical": "rapport d'Audit",
+    "variants": [
+      "rapport d'Audit",
+      "rapport d'audit"
+    ]
+  },
+  "rapport d'information": {
+    "canonical": "rapport d'information",
+    "variants": [
+      "rapport d'information"
+    ]
+  },
+  "rapport de mission": {
+    "canonical": "rapport de mission",
+    "variants": [
+      "rapport de mission"
+    ]
+  },
+  "rapport parlementaire": {
+    "canonical": "rapport parlementaire",
+    "variants": [
+      "rapport parlementaire"
+    ]
+  },
+  "rapporteur": {
+    "canonical": "rapporteur",
+    "variants": [
+      "rapporteur"
+    ]
+  },
+  "rapporteur général": {
+    "canonical": "rapporteur général",
+    "variants": [
+      "rapporteur général"
+    ]
+  },
+  "rapporteur public": {
+    "canonical": "rapporteur public",
+    "variants": [
+      "rapporteur public"
+    ]
+  },
+  "recensement": {
+    "canonical": "recensement de la population",
+    "variants": [
+      "recensement"
+    ]
+  },
+  "recensement agricole": {
+    "canonical": "recensement agricole",
+    "variants": [
+      "recensement agricole"
+    ]
+  },
+  "rectorat": {
+    "canonical": "rectorat d'académie",
+    "variants": [
+      "rectorat"
+    ]
+  },
+  "responsables": {
+    "canonical": "responsables",
+    "variants": [
+      "responsables"
+    ]
+  },
+  "retraités": {
+    "canonical": "retraités",
+    "variants": [
+      "retraités"
+    ]
+  },
+  "revue": {
+    "canonical": "revue",
+    "variants": [
+      "revue"
+    ]
+  },
+  "régulateur": {
+    "canonical": "régulateur",
+    "variants": [
+      "régulateur"
+    ]
+  },
+  "réseaux sociaux": {
+    "canonical": "média social",
+    "variants": [
+      "réseaux sociaux"
+    ]
+  },
+  "secrétaire d'état": {
+    "canonical": "secrétaire d'État",
+    "variants": [
+      "secrétaire d'État"
+    ]
+  },
+  "secrétariat d'état": {
+    "canonical": "secrétariat d'État",
+    "variants": [
+      "secrétariat d'État",
+      "secrétariat d'état"
+    ]
+  },
+  "service statistique": {
+    "canonical": "institut officiel de statistique",
+    "variants": [
+      "service statistique"
+    ]
+  },
+  "sociétés savantes": {
+    "canonical": "sociétés savantes",
+    "variants": [
+      "sociétés savantes"
+    ]
+  },
+  "structures": {
+    "canonical": "structures",
+    "variants": [
+      "structures"
+    ]
+  },
+  "syndicat": {
+    "canonical": "syndicat",
+    "variants": [
+      "Syndicat",
+      "syndicat"
+    ]
+  },
+  "syndicats agricoles": {
+    "canonical": "syndicat agricole",
+    "variants": [
+      "syndicat agricole",
+      "syndicats agricoles",
+      "syndicats d'exploitants agricoles"
+    ]
+  },
+  "syndicats professionnels": {
+    "canonical": "syndicat professionnel",
+    "variants": [
+      "syndicats professionnels"
+    ]
+  },
+  "sécurité civile": {
+    "canonical": "sécurité civile",
+    "variants": [
+      "sécurité civile"
+    ]
+  },
+  "sécurité routière": {
+    "canonical": "prévention et sécurité routières",
+    "variants": [
+      "sécurité routière",
+      "Sécurité routière",
+      "Prévention Routière",
+      "Prévention routière",
+      "prévention et sécurité routières"
+    ]
+  },
+  "sécurité sociale": {
+    "canonical": "sécurité sociale",
+    "variants": [
+      "Sécurité sociale",
+      "sécurité sociale"
+    ]
+  },
+  "techniciens": {
+    "canonical": "technicien ou technicienne",
+    "variants": [
+      "techniciens"
+    ]
+  },
+  "temps réel": {
+    "canonical": "temps réel",
+    "variants": [
+      "temps réel"
+    ]
+  },
+  "terrain": {
+    "canonical": "terrain",
+    "variants": [
+      "terrain"
+    ]
+  },
+  "think tank": {
+    "canonical": "think tank",
+    "variants": [
+      "Think Tank",
+      "think tank"
+    ]
+  },
+  "travailleurs sociaux": {
+    "canonical": "travailleur social",
+    "variants": [
+      "Travailleurs sociaux",
+      "travailleurs sociaux"
+    ]
+  },
+  "tribunal": {
+    "canonical": "Tribunal",
+    "variants": [
+      "Tribunal",
+      "tribunal"
+    ]
+  },
+  "télégramme": {
+    "canonical": "télégramme",
+    "variants": [
+      "Dépêche",
+      "Télégramme"
+    ]
+  },
+  "télégramme diplomatique": {
+    "canonical": "télégramme diplomatique",
+    "variants": [
+      "Télégramme diplomatique",
+      "télégramme diplomatique"
+    ]
+  },
+  "témoignages": {
+    "canonical": "témoignages",
+    "variants": [
+      "témoignages"
+    ]
+  },
+  "uni": {
+    "canonical": "université",
+    "variants": [
+      "Université",
+      "UNI",
+      "université"
+    ]
+  },
+  "union": {
+    "canonical": "Union",
+    "variants": [
+      "Union"
+    ]
+  },
+  "utilisateurs": {
+    "canonical": "utilisateur ou utilisatrice",
+    "variants": [
+      "utilisateurs"
+    ]
+  },
+  "vice-président": {
+    "canonical": "vice-président",
+    "variants": [
+      "vice-président"
+    ]
+  },
+  "ébénistes": {
+    "canonical": "liste d'ébénistes",
+    "variants": [
+      "ébénistes"
+    ]
+  },
+  "élue": {
+    "canonical": "élu(e)",
+    "variants": [
+      "élue"
+    ]
+  },
+  "épidémiologiques": {
+    "canonical": "épidémiologie",
+    "variants": [
+      "épidémiologiques"
+    ]
+  },
+  "étude d'impact": {
+    "canonical": "étude d'impact",
+    "variants": [
+      "études d'impact",
+      "étude d'impact"
+    ]
+  },
+  "études internationales": {
+    "canonical": "études internationales",
+    "variants": [
+      "études internationales"
+    ]
+  },
+  "société civile": {
+    "canonical": "Société Civile",
+    "variants": [
+      "Société Civile",
+      "société civile"
+    ]
+  },
+  "autorité": {
+    "canonical": "Autorités BnF",
+    "variants": [
+      "autorité",
+      "Autorité",
+      "autorités",
+      "Autorités BnF"
+    ]
+  },
+  "refuge": {
+    "canonical": "Refuge",
+    "variants": [
+      "Refuge"
+    ]
+  },
+  "m. le ministre": {
+    "canonical": "M. le ministre",
+    "variants": [
+      "M. le ministre"
+    ]
+  },
+  "ministre": {
+    "canonical": "ministre",
+    "variants": [
+      "ministre"
+    ]
+  },
+  "associations": {
+    "canonical": "associations",
+    "variants": [
+      "associations"
+    ]
+  },
+  "syndicats": {
+    "canonical": "syndicats",
+    "variants": [
+      "syndicats"
+    ]
+  },
+  "ministère": {
+    "canonical": "ministère",
+    "variants": [
+      "ministère"
+    ]
+  },
+  "professionnels": {
+    "canonical": "professionnels",
+    "variants": [
+      "professionnels"
+    ]
+  },
+  "m. le député": {
+    "canonical": "M. le député",
+    "variants": [
+      "M. le député"
+    ]
+  },
+  "professionnels de santé": {
+    "canonical": "professionnels de santé",
+    "variants": [
+      "professionnels de santé"
+    ]
+  },
+  "parents d'élèves": {
+    "canonical": "parents d'élèves",
+    "variants": [
+      "parents d'élèves"
+    ]
+  },
+  "élus locaux": {
+    "canonical": "élus locaux",
+    "variants": [
+      "élus locaux"
+    ]
+  },
+  "organisations syndicales": {
+    "canonical": "organisations syndicales",
+    "variants": [
+      "organisations syndicales"
+    ]
+  },
+  "maires": {
+    "canonical": "maires",
+    "variants": [
+      "maires"
+    ]
+  },
+  "élus": {
+    "canonical": "élus",
+    "variants": [
+      "élus"
+    ]
+  },
+  "patients": {
+    "canonical": "patients",
+    "variants": [
+      "patients"
+    ]
+  },
+  "professionnels du secteur": {
+    "canonical": "professionnels du secteur",
+    "variants": [
+      "professionnels du secteur"
+    ]
+  },
+  "familles": {
+    "canonical": "familles",
+    "variants": [
+      "familles"
+    ]
+  },
+  "agriculteurs": {
+    "canonical": "agriculteurs",
+    "variants": [
+      "agriculteurs"
+    ]
+  },
+  "mme la ministre": {
+    "canonical": "Mme la ministre",
+    "variants": [
+      "Mme la ministre"
+    ]
+  },
+  "enseignants": {
+    "canonical": "enseignants",
+    "variants": [
+      "enseignants"
+    ]
+  },
+  "m. le premier ministre": {
+    "canonical": "M. le Premier ministre",
+    "variants": [
+      "M. le Premier ministre"
+    ]
+  },
+  "scientifiques": {
+    "canonical": "scientifiques",
+    "variants": [
+      "scientifiques"
+    ]
+  },
+  "parents": {
+    "canonical": "parents",
+    "variants": [
+      "parents"
+    ]
+  },
+  "associations de patients": {
+    "canonical": "associations de patients",
+    "variants": [
+      "associations de patients"
+    ]
+  },
+  "riverains": {
+    "canonical": "riverains",
+    "variants": [
+      "riverains"
+    ]
+  },
+  "réponse ministérielle": {
+    "canonical": "réponse ministérielle",
+    "variants": [
+      "réponse ministérielle"
+    ]
+  },
+  "apiculteurs": {
+    "canonical": "apiculteurs",
+    "variants": [
+      "apiculteurs"
+    ]
+  },
+  "mme la députée": {
+    "canonical": "Mme la députée",
+    "variants": [
+      "Mme la députée"
+    ]
+  },
+  "étudiants": {
+    "canonical": "étudiants",
+    "variants": [
+      "étudiants"
+    ]
+  },
+  "usagers": {
+    "canonical": "usagers",
+    "variants": [
+      "usagers"
+    ]
+  },
+  "syndicalistes": {
+    "canonical": "syndicalistes",
+    "variants": [
+      "syndicalistes"
+    ]
+  },
+  "professionnels du bâtiment": {
+    "canonical": "professionnels du bâtiment",
+    "variants": [
+      "professionnels du bâtiment"
+    ]
+  },
+  "professionnels du tourisme": {
+    "canonical": "professionnels du tourisme",
+    "variants": [
+      "professionnels du tourisme"
+    ]
+  },
+  "professionnels de l'éducation": {
+    "canonical": "professionnels de l'éducation",
+    "variants": [
+      "professionnels de l'éducation"
+    ]
+  },
+  "acteurs de terrain": {
+    "canonical": "acteurs de terrain",
+    "variants": [
+      "acteurs de terrain"
+    ]
+  },
+  "collectivités": {
+    "canonical": "collectivités",
+    "variants": [
+      "collectivités"
+    ]
+  },
+  "collectivités territoriales": {
+    "canonical": "collectivités territoriales",
+    "variants": [
+      "collectivités territoriales"
+    ]
+  },
+  "consommateurs": {
+    "canonical": "consommateurs",
+    "variants": [
+      "consommateurs"
+    ]
+  },
+  "contribuables": {
+    "canonical": "contribuables",
+    "variants": [
+      "contribuables"
+    ]
+  },
+  "salariés": {
+    "canonical": "salariés",
+    "variants": [
+      "salariés"
+    ]
+  },
+  "entreprises": {
+    "canonical": "entreprises",
+    "variants": [
+      "entreprises"
+    ]
+  },
+  "éleveurs": {
+    "canonical": "éleveurs",
+    "variants": [
+      "éleveurs"
+    ]
+  },
+  "chercheurs": {
+    "canonical": "chercheurs",
+    "variants": [
+      "chercheurs"
+    ]
+  },
+  "experts": {
+    "canonical": "experts",
+    "variants": [
+      "experts"
+    ]
+  },
+  "universitaires": {
+    "canonical": "universitaires",
+    "variants": [
+      "universitaires"
+    ]
+  },
+  "médecins": {
+    "canonical": "médecins",
+    "variants": [
+      "médecins"
+    ]
+  },
+  "infirmiers": {
+    "canonical": "infirmiers",
+    "variants": [
+      "infirmiers"
+    ]
+  },
+  "associations locales": {
+    "canonical": "associations locales",
+    "variants": [
+      "associations locales"
+    ]
+  },
+  "associations professionnelles": {
+    "canonical": "associations professionnelles",
+    "variants": [
+      "associations professionnelles"
+    ]
+  },
+  "acteurs économiques": {
+    "canonical": "acteurs économiques",
+    "variants": [
+      "acteurs économiques"
+    ]
+  },
+  "représentants des usagers": {
+    "canonical": "représentants des usagers",
+    "variants": [
+      "représentants des usagers"
+    ]
+  },
+  "commissions parlementaires": {
+    "canonical": "commissions parlementaires",
+    "variants": [
+      "commissions parlementaires"
+    ]
+  },
+  "conseils municipaux": {
+    "canonical": "conseils municipaux",
+    "variants": [
+      "conseils municipaux"
+    ]
+  },
+  "fédérations sportives": {
+    "canonical": "fédérations sportives",
+    "variants": [
+      "fédérations sportives"
+    ]
+  },
+  "associations environnementales": {
+    "canonical": "associations environnementales",
+    "variants": [
+      "associations environnementales"
+    ]
+  },
+  "organisations patronales": {
+    "canonical": "organisations patronales",
+    "variants": [
+      "organisations patronales"
+    ]
+  },
+  "organisations professionnelles": {
+    "canonical": "organisations professionnelles",
+    "variants": [
+      "organisations professionnelles"
+    ]
+  },
+  "élus régionaux": {
+    "canonical": "élus régionaux",
+    "variants": [
+      "élus régionaux"
+    ]
+  },
+  "élus départementaux": {
+    "canonical": "élus départementaux",
+    "variants": [
+      "élus départementaux"
+    ]
+  },
+  "collectivités rurales": {
+    "canonical": "collectivités rurales",
+    "variants": [
+      "collectivités rurales"
+    ]
+  },
+  "professionnels concernés": {
+    "canonical": "professionnels concernés",
+    "variants": [
+      "professionnels concernés"
+    ]
+  }
+}
