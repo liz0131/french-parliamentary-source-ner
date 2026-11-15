@@ -10,8 +10,8 @@ best_model/
 check_point/
 training/
 dataset/
-*.json
-*.xlsx
+# *.json
+# *.xlsx
 *.numbers
 *.odt
-*.ipynb
+# *.ipynb
